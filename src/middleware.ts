@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server"
 import { updateSession } from "@/lib/supabase/middleware"
 
-// Next.js 16: convención "proxy" (reemplaza a middleware.ts).
-export async function proxy(request: NextRequest) {
+// Convención `middleware` (estable en Next 16). Refresca sesión y protege rutas.
+export async function middleware(request: NextRequest) {
   return updateSession(request)
 }
 
