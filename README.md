@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Operon CRM
 
-## Getting Started
+CRM interno de Operon: pipeline comercial (lead → oportunidad → cliente) con módulos de
+proyectos (landing pages) y automatizaciones (n8n). Uso interno para Santiago y Tomi.
 
-First, run the development server:
+> Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · shadcn/ui · Supabase (Postgres, Auth, RLS).
+
+## Estado
+
+MVP en construcción. Fases (ver plan de producto en `docs/`):
+
+- [x] **Fase 1** — Fundación: esquema, RLS, auth, seed.
+- [x] Auth + shell + Dashboard "Hoy".
+- [ ] **Fase 2** — Ventas y seguimiento (leads, orgs, pipeline Kanban, actividades).
+- [ ] **Fase 3** — Clientes y entrega (proyectos + checklists).
+- [ ] **Fase 4** — Métricas + endpoint n8n.
+- [ ] **Fase 5** — Calidad, seguridad y deploy.
+
+## Setup local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # completar con las claves del proyecto Supabase
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Variables de entorno (`.env.local`)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Descripción |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable/anon key (segura para el cliente) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role — **solo servidor**. No exponer |
+| `N8N_INGEST_SECRET` | Secreto del endpoint de ingesta n8n (Fase 4) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Base de datos
 
-## Learn More
+Migraciones versionadas en `supabase/migrations/` (orden por prefijo numérico):
 
-To learn more about Next.js, take a look at the following resources:
+1. `0001_core_schema.sql` — enums, tablas P0, índices, triggers.
+2. `0002_rls_and_auth.sql` — RLS (solo internos autenticados) + auto-profile.
+3. `0003_harden_functions.sql` — endurecimiento de funciones.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Seed ficticio (no contiene datos reales): `supabase/seed.sql`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Aplicá migraciones y seed con la [Supabase CLI](https://supabase.com/docs/guides/local-development):
 
-## Deploy on Vercel
+```bash
+supabase db reset            # aplica migrations + seed en la base local
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+> En remoto, las migraciones ya fueron aplicadas al proyecto de desarrollo vía Supabase.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Usuarios de desarrollo (seed)
+
+| Email | Rol | Password |
+|---|---|---|
+| `tomi@operon.dev` | admin | `Operon2026!` |
+| `santiago@operon.dev` | admin | `Operon2026!` |
+
+## Seguridad
+
+- **RLS activo** en todas las tablas: un usuario anónimo no ve ningún dato interno.
+- El CRM **no almacena** contraseñas, API keys ni tokens de clientes. `automations.secret_ref`
+  guarda únicamente una etiqueta/referencia; el valor vive en n8n / gestor de secretos.
+
+## Scripts
+
+```bash
+npm run dev     # desarrollo
+npm run build   # build de producción
+npm run lint    # eslint
+```
