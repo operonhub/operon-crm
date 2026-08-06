@@ -48,6 +48,8 @@ export function LinksDialog({
 
   useEffect(() => {
     if (state?.ok) {
+      // Reacción a la resolución de la Server Action (evento externo).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false)
       router.refresh()
     }

@@ -11,10 +11,10 @@ MVP en construcción. Fases (ver plan de producto en `docs/`):
 
 - [x] **Fase 1** — Fundación: esquema, RLS, auth, seed.
 - [x] Auth + shell + Dashboard "Hoy".
-- [ ] **Fase 2** — Ventas y seguimiento (leads, orgs, pipeline Kanban, actividades).
-- [ ] **Fase 3** — Clientes y entrega (proyectos + checklists).
-- [ ] **Fase 4** — Métricas + endpoint n8n.
-- [ ] **Fase 5** — Calidad, seguridad y deploy.
+- [x] **Fase 2** — Ventas y seguimiento (leads, orgs, pipeline Kanban, actividades, CSV).
+- [x] **Fase 3** — Clientes y entrega (proyectos + checklists).
+- [x] **Fase 4** — Métricas + endpoint n8n.
+- [x] **Fase 5** — Calidad, seguridad y deploy.
 
 ## Setup local
 
@@ -64,10 +64,74 @@ supabase db reset            # aplica migrations + seed en la base local
 - El CRM **no almacena** contraseñas, API keys ni tokens de clientes. `automations.secret_ref`
   guarda únicamente una etiqueta/referencia; el valor vive en n8n / gestor de secretos.
 
+## Endpoint de ingesta n8n
+
+`POST /api/ingest/leads` — crea o actualiza leads desde n8n. Autenticado con
+`Authorization: Bearer <N8N_INGEST_SECRET>`. **Idempotente** por `external_id`
+(reenviar el mismo no duplica: actualiza). Deduplica organización por dominio y
+contacto por email. Acepta un objeto o un array (hasta 100).
+
+El secreto se verifica dentro de una función Postgres `SECURITY DEFINER`
+(`ingest_lead`) contra la tabla `ingest_config`, protegida por RLS (nadie la lee
+por API). Para rotarlo:
+
+```sql
+update ingest_config set secret = '<nuevo>' where id = 1;
+```
+
+y actualizar `N8N_INGEST_SECRET` en el entorno.
+
+### Ejemplo de payload
+
+```bash
+curl -X POST https://TU-APP/api/ingest/leads \
+  -H "Authorization: Bearer $N8N_INGEST_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_id": "n8n-abc-123",
+    "empresa": "Distribuidora Andina",
+    "web": "https://andina.com.ar",
+    "contacto": "Marta Ruiz",
+    "email": "marta@andina.com.ar",
+    "source": "n8n",
+    "service_interest": "automation",
+    "segment": "Mayorista"
+  }'
+```
+
+Respuesta: `{ "ok": true, "created": 1, "updated": 0, "results": [...] }`.
+Los fallos inesperados quedan registrados en la tabla `ingest_errors`.
+
+## Deploy
+
+1. Crear un proyecto Supabase **separado** para producción y aplicar
+   `supabase/migrations/` + un `ingest_config.secret` propio.
+2. Desplegar en Vercel (o VPS). Cargar las variables de entorno del proyecto
+   (las mismas de `.env.example`) apuntando a la base de producción.
+3. En Supabase Auth, deshabilitar el registro público (los usuarios internos se
+   crean a mano) y, opcionalmente, activar *leaked password protection*.
+
+## Backup y portabilidad
+
+- Backups automáticos de Postgres provistos por Supabase (según plan).
+- Exportación puntual a SQL: `supabase db dump -f backup.sql`.
+- Exportación CSV por tabla desde el dashboard de Supabase o `COPY ... TO`.
+
 ## Scripts
 
 ```bash
 npm run dev     # desarrollo
 npm run build   # build de producción
 npm run lint    # eslint
+npm run test    # vitest (reglas de negocio: dedupe, CSV)
 ```
+
+## Verificaciones de calidad
+
+Al cierre de la Fase 5, ejecutado y en verde:
+
+- `npm run test` → 14 tests (dedupe + parser CSV).
+- `npm run lint` → sin errores.
+- `npm run build` → compila y typecheck OK.
+- RLS verificada: un anónimo no lee `leads`, `organizations` ni el secreto de
+  ingesta (todas devuelven `[]`).

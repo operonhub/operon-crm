@@ -50,6 +50,8 @@ export function ActivityPanel({
   useEffect(() => {
     if (state && "ok" in state && state.ok) {
       formRef.current?.reset()
+      // Reset del tipo tras agregar la actividad (evento externo).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setType("nota")
       router.refresh()
     }
