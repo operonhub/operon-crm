@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { normalizeDomain, normalizeEmail } from "@/lib/dedupe"
+import { parseCSV, normalizeHeader } from "@/lib/csv"
+import { LEAD_SOURCE_LABELS, SERVICE_TYPE_LABELS } from "@/lib/constants"
 import type { Enums } from "@/lib/supabase/types"
 
 export type Duplicate = {
@@ -212,4 +214,155 @@ export async function convertLeadToOpportunity(_prev: unknown, fd: FormData) {
   revalidatePath("/leads")
   revalidatePath("/oportunidades")
   redirect(`/oportunidades/${opp.id}`)
+}
+
+// ---------- Importación CSV ----------
+function resolveSource(raw: string): Enums<"lead_source"> {
+  const s = raw.trim().toLowerCase()
+  const keys = Object.keys(LEAD_SOURCE_LABELS) as Enums<"lead_source">[]
+  const byKey = keys.find((k) => k === s)
+  if (byKey) return byKey
+  const byLabel = keys.find(
+    (k) => LEAD_SOURCE_LABELS[k].toLowerCase() === s
+  )
+  return byLabel ?? "lista_manual"
+}
+
+function resolveService(raw: string): Enums<"service_type"> | null {
+  const s = raw.trim().toLowerCase()
+  if (!s) return null
+  const keys = Object.keys(SERVICE_TYPE_LABELS) as Enums<"service_type">[]
+  return (
+    keys.find((k) => k === s) ??
+    keys.find((k) => SERVICE_TYPE_LABELS[k].toLowerCase() === s) ??
+    null
+  )
+}
+
+export type ImportState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "done"; created: number; skipped: number; errors: string[] }
+
+/**
+ * Importa leads desde un CSV pegado. Salta filas cuyo dominio o email
+ * ya existen (dedupe) y reporta un resumen. Nunca fusiona.
+ */
+export async function importLeads(
+  _prev: ImportState,
+  fd: FormData
+): Promise<ImportState> {
+  const supabase = await createClient()
+  const csv = String(fd.get("csv") ?? "").trim()
+  const ownerId = str(fd, "owner_id")
+
+  if (!csv) return { status: "error", message: "Pegá el contenido CSV." }
+
+  const rows = parseCSV(csv)
+  if (rows.length < 2) {
+    return {
+      status: "error",
+      message: "El CSV necesita una fila de encabezados y al menos una fila de datos.",
+    }
+  }
+
+  const headers = rows[0].map(normalizeHeader)
+  const idx = (key: string) => headers.indexOf(key)
+  const iEmpresa = idx("empresa")
+  if (iEmpresa === -1) {
+    return {
+      status: "error",
+      message: "Falta la columna 'empresa' en el encabezado.",
+    }
+  }
+
+  let created = 0
+  let skipped = 0
+  const errors: string[] = []
+
+  for (let r = 1; r < rows.length; r++) {
+    const cells = rows[r]
+    const get = (key: string) => {
+      const i = idx(key)
+      return i >= 0 ? (cells[i] ?? "").trim() : ""
+    }
+
+    const empresa = (cells[iEmpresa] ?? "").trim()
+    if (!empresa) continue
+
+    const domain = normalizeDomain(get("web"))
+    const email = normalizeEmail(get("email"))
+
+    // Dedupe: saltar si ya existe org (por dominio) o contacto (por email).
+    if (domain) {
+      const { data } = await supabase
+        .from("organizations")
+        .select("id")
+        .eq("domain", domain)
+        .limit(1)
+        .maybeSingle()
+      if (data) {
+        skipped++
+        continue
+      }
+    }
+    if (email) {
+      const { data } = await supabase
+        .from("contacts")
+        .select("id")
+        .ilike("email", email)
+        .limit(1)
+        .maybeSingle()
+      if (data) {
+        skipped++
+        continue
+      }
+    }
+
+    // Crear org
+    const { data: org, error: orgErr } = await supabase
+      .from("organizations")
+      .insert({ name: empresa, domain, website: get("web") || null })
+      .select("id")
+      .single()
+    if (orgErr || !org) {
+      errors.push(`Fila ${r + 1} (${empresa}): ${orgErr?.message ?? "error"}`)
+      continue
+    }
+
+    // Crear contacto (opcional)
+    let contactId: string | null = null
+    const contacto = get("contacto")
+    if (contacto || email) {
+      const { data: c } = await supabase
+        .from("contacts")
+        .insert({
+          organization_id: org.id,
+          full_name: contacto || email || "Sin nombre",
+          email,
+          phone: get("telefono") || null,
+        })
+        .select("id")
+        .single()
+      contactId = c?.id ?? null
+    }
+
+    // Crear lead
+    const { error: leadErr } = await supabase.from("leads").insert({
+      organization_id: org.id,
+      contact_id: contactId,
+      source: resolveSource(get("fuente")),
+      service_interest: resolveService(get("servicio")),
+      segment: get("segmento") || null,
+      owner_id: ownerId || null,
+    })
+    if (leadErr) {
+      errors.push(`Fila ${r + 1} (${empresa}): ${leadErr.message}`)
+      continue
+    }
+    created++
+  }
+
+  revalidatePath("/leads")
+  return { status: "done", created, skipped, errors }
 }

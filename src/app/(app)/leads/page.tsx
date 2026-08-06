@@ -4,6 +4,7 @@ import { getProfiles } from "@/lib/queries"
 import { PageHeader } from "@/components/page-header"
 import { LeadFilterBar } from "@/components/leads/filter-bar"
 import { NewLeadDialog } from "@/components/leads/new-lead-dialog"
+import { ImportCsvDialog } from "@/components/leads/import-csv-dialog"
 import { SourceBadge, LeadStatusBadge } from "@/components/lead-badges"
 import {
   Table,
@@ -57,6 +58,7 @@ export default async function LeadsPage({
   return (
     <>
       <PageHeader title="Leads" description={`${leads.length} lead(s)`}>
+        <ImportCsvDialog profiles={profiles} />
         <NewLeadDialog profiles={profiles} />
       </PageHeader>
 

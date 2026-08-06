@@ -4,6 +4,7 @@ import { ArrowLeft, Building2, User } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
 import { StageControl } from "@/components/opportunities/stage-control"
+import { EditOpportunityDialog } from "@/components/opportunities/edit-dialog"
 import {
   ActivityPanel,
   type Activity,
@@ -44,6 +45,16 @@ export default async function OpportunityDetailPage({
   return (
     <>
       <PageHeader title={opp.title}>
+        <EditOpportunityDialog
+          opp={{
+            id: opp.id,
+            estimated_value: opp.estimated_value,
+            probability: opp.probability,
+            next_action: opp.next_action,
+            next_action_date: opp.next_action_date,
+            expected_close_date: opp.expected_close_date,
+          }}
+        />
         <StageControl oppId={opp.id} currentStage={opp.stage} />
       </PageHeader>
 

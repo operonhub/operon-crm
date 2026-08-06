@@ -59,23 +59,35 @@ export async function moveStage(
 }
 
 /** Actualiza campos de la oportunidad (próxima acción, valor, etc.). */
-export async function updateOpportunity(id: string, fd: FormData) {
+export async function updateOpportunity(_prev: unknown, fd: FormData) {
   const supabase = await createClient()
+
+  const id = str(fd, "opportunity_id")
+  if (!id) return { error: "Falta la oportunidad." }
 
   const patch: TablesUpdate<"opportunities"> = {}
   const nextAction = str(fd, "next_action")
   const nextActionDate = str(fd, "next_action_date")
   const estimatedValue = str(fd, "estimated_value")
   const probability = str(fd, "probability")
+  const expectedClose = str(fd, "expected_close_date")
 
-  if (nextAction) patch.next_action = nextAction
-  if (nextActionDate) patch.next_action_date = nextActionDate
-  if (estimatedValue) patch.estimated_value = Number(estimatedValue)
-  if (probability) patch.probability = Number(probability)
+  patch.next_action = nextAction || null
+  patch.next_action_date = nextActionDate || null
+  patch.estimated_value = estimatedValue ? Number(estimatedValue) : null
+  patch.probability = probability ? Number(probability) : null
+  patch.expected_close_date = expectedClose || null
 
-  await supabase.from("opportunities").update(patch).eq("id", id)
+  const { error } = await supabase
+    .from("opportunities")
+    .update(patch)
+    .eq("id", id)
+  if (error) return { error: error.message }
+
   revalidatePath(`/oportunidades/${id}`)
   revalidatePath("/oportunidades")
+  revalidatePath("/")
+  return { ok: true }
 }
 
 /** Agrega una actividad (nota, llamada, email, reunión o tarea). */
