@@ -3,8 +3,11 @@ import { notFound } from "next/navigation"
 import { ArrowLeft, Building2, User } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
+import { FolderKanban } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { StageControl } from "@/components/opportunities/stage-control"
 import { EditOpportunityDialog } from "@/components/opportunities/edit-dialog"
+import { WinDialog } from "@/components/opportunities/win-dialog"
 import {
   ActivityPanel,
   type Activity,
@@ -42,9 +45,28 @@ export default async function OpportunityDetailPage({
     .eq("opportunity_id", id)
     .order("created_at", { ascending: false })
 
+  // Proyecto ya creado desde esta oportunidad (si fue ganada).
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("opportunity_id", id)
+    .maybeSingle()
+
   return (
     <>
       <PageHeader title={opp.title}>
+        {project ? (
+          <Button variant="outline" render={<Link href={`/proyectos/${project.id}`} />}>
+            <FolderKanban className="mr-1 h-4 w-4" />
+            Ver proyecto
+          </Button>
+        ) : (
+          <WinDialog
+            opportunityId={opp.id}
+            defaultName={opp.title}
+            defaultType={opp.service_type}
+          />
+        )}
         <EditOpportunityDialog
           opp={{
             id: opp.id,
