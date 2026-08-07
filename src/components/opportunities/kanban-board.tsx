@@ -123,7 +123,7 @@ export function KanbanBoard({ opportunities }: { opportunities: OppCard[] }) {
                       <div
                         className={`mt-2 flex items-center gap-1 border-t pt-2 text-xs ${
                           isOverdue(c.next_action_date)
-                            ? "text-red-600"
+                            ? "text-destructive"
                             : "text-muted-foreground"
                         }`}
                       >

@@ -13,6 +13,8 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { OperonMark } from "@/components/brand/operon-mark"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { logout } from "@/app/login/actions"
 
 const NAV = [
@@ -36,10 +38,10 @@ export function AppSidebar({
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
       <div className="flex h-14 items-center gap-2 border-b px-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold">
-          O
-        </div>
-        <span className="font-semibold">Operon CRM</span>
+        <OperonMark className="h-7 w-5 shrink-0" />
+        <span className="font-heading text-sm font-semibold tracking-tight">
+          Operon CRM
+        </span>
       </div>
 
       <nav className="flex-1 space-y-1 p-3">
@@ -65,9 +67,12 @@ export function AppSidebar({
       </nav>
 
       <div className="border-t p-3">
-        <div className="mb-2 px-1">
-          <p className="truncate text-sm font-medium">{userName}</p>
-          <p className="text-xs text-muted-foreground capitalize">{userRole}</p>
+        <div className="mb-2 flex items-center justify-between gap-2 px-1">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{userName}</p>
+            <p className="text-xs text-muted-foreground capitalize">{userRole}</p>
+          </div>
+          <ThemeToggle />
         </div>
         <form action={logout}>
           <Button

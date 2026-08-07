@@ -58,13 +58,13 @@ export function ImportCsvDialog({ profiles }: { profiles: Profile[] }) {
 
         {state.status === "done" ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 rounded-md border border-green-300 bg-green-50 p-3 text-sm dark:bg-green-950/30">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success/10 p-3 text-sm">
+              <CheckCircle2 className="h-5 w-5 text-success" />
               <div>
-                <p className="font-medium text-green-800 dark:text-green-300">
+                <p className="font-medium text-success">
                   {state.created} lead(s) creado(s)
                 </p>
-                <p className="text-green-700 dark:text-green-400">
+                <p className="text-success/80">
                   {state.skipped} saltado(s) por duplicado
                   {state.errors.length > 0
                     ? ` · ${state.errors.length} con error`

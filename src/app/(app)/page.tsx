@@ -116,14 +116,18 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {kpis.map((k) => (
             <Link key={k.label} href={k.href}>
-              <Card className="transition-colors hover:border-primary/50">
+              <Card className="transition-colors hover:ring-primary/40">
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
                     <k.icon className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">{k.label}</p>
-                    <p className="text-xl font-semibold">{k.value}</p>
+                    <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+                      {k.label}
+                    </p>
+                    <p className="font-mono text-xl font-semibold tabular-nums">
+                      {k.value}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -135,7 +139,7 @@ export default async function DashboardPage() {
           {/* Actividades vencidas */}
           <DashboardList
             title="Vencidas"
-            icon={<AlertTriangle className="h-4 w-4 text-red-500" />}
+            icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
             count={overdueActivities.data?.length ?? 0}
             empty="Nada vencido. 🎉"
           >
@@ -155,7 +159,7 @@ export default async function DashboardPage() {
           {/* Actividades de hoy */}
           <DashboardList
             title="Para hoy"
-            icon={<CalendarClock className="h-4 w-4 text-blue-500" />}
+            icon={<CalendarClock className="h-4 w-4 text-primary" />}
             count={todayActivities.data?.length ?? 0}
             empty="Sin tareas para hoy."
           >
@@ -174,7 +178,7 @@ export default async function DashboardPage() {
           {/* Oportunidades con próxima acción vencida */}
           <DashboardList
             title="Próxima acción vencida"
-            icon={<AlertTriangle className="h-4 w-4 text-orange-500" />}
+            icon={<AlertTriangle className="h-4 w-4 text-orange-500 dark:text-orange-400" />}
             count={overdueOpps.data?.length ?? 0}
             empty="Todo al día."
           >
@@ -192,7 +196,7 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <StageBadge stage={o.stage} />
-                  <span className="text-xs text-red-600">
+                  <span className="text-xs text-destructive">
                     {formatDateShort(o.next_action_date)}
                   </span>
                 </div>
@@ -203,7 +207,7 @@ export default async function DashboardPage() {
           {/* Oportunidades sin próxima acción */}
           <DashboardList
             title="Activas sin próxima acción"
-            icon={<CircleDashed className="h-4 w-4 text-amber-500" />}
+            icon={<CircleDashed className="h-4 w-4 text-amber-500 dark:text-amber-400" />}
             count={noNextAction.data?.length ?? 0}
             empty="Todas las activas tienen próxima acción."
           >
@@ -290,7 +294,7 @@ function ActivityRow({
         </p>
       </div>
       <span
-        className={`shrink-0 text-xs ${overdue ? "text-red-600" : "text-muted-foreground"}`}
+        className={`shrink-0 text-xs ${overdue ? "text-destructive" : "text-muted-foreground"}`}
       >
         {formatDateShort(dueDate)}
       </span>

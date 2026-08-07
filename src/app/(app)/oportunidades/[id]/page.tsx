@@ -151,7 +151,7 @@ export default async function OpportunityDetailPage({
             <Card
               className={
                 isOverdue(opp.next_action_date)
-                  ? "border-red-300"
+                  ? "ring-2 ring-destructive/40"
                   : undefined
               }
             >

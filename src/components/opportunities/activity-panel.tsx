@@ -151,7 +151,7 @@ function ActivityRow({
           </span>
           <span>· {formatDate(a.created_at)}</span>
           {a.due_date && !a.completed && (
-            <span className={isOverdue(a.due_date) ? "text-red-600" : ""}>
+            <span className={isOverdue(a.due_date) ? "text-destructive" : ""}>
               · vence {formatDate(a.due_date)}
             </span>
           )}
@@ -171,7 +171,7 @@ function ActivityRow({
           title={a.completed ? "Marcar pendiente" : "Marcar completada"}
         >
           {a.completed ? (
-            <CheckSquare className="h-4 w-4 text-green-600" />
+            <CheckSquare className="h-4 w-4 text-success" />
           ) : (
             <Square className="h-4 w-4" />
           )}
