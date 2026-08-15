@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { isActiveStage } from "@/lib/constants"
 import type { Enums, TablesUpdate } from "@/lib/supabase/types"
@@ -13,6 +14,105 @@ export type MoveResult =
   | { ok: true }
   | { ok: false; needsNextAction: true }
   | { ok: false; error: string }
+
+export type OpportunityFormState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+
+/** Crea una oportunidad manualmente desde el Pipeline. */
+export async function createOpportunity(
+  _prev: OpportunityFormState,
+  fd: FormData
+): Promise<OpportunityFormState> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return {
+      status: "error",
+      message: "Tu sesión venció. Volvé a iniciar sesión.",
+    }
+  }
+
+  const title = str(fd, "title")
+  const organizationName = str(fd, "organization_name")
+  const serviceType = str(fd, "service_type")
+  const estimatedValueRaw = str(fd, "estimated_value")
+  const nextAction = str(fd, "next_action")
+  const nextActionDate = str(fd, "next_action_date")
+  const ownerId = str(fd, "owner_id")
+
+  if (!title) {
+    return { status: "error", message: "El nombre del proyecto es obligatorio." }
+  }
+  if (!nextAction || !nextActionDate) {
+    return {
+      status: "error",
+      message: "Definí la próxima acción y su fecha.",
+    }
+  }
+
+  let estimatedValue: number | null = null
+  if (estimatedValueRaw) {
+    estimatedValue = Number(estimatedValueRaw)
+    if (!Number.isFinite(estimatedValue) || estimatedValue < 0) {
+      return { status: "error", message: "Ingresá un valor estimado válido." }
+    }
+  }
+
+  let organizationId: string | null = null
+  if (organizationName) {
+    const { data: organization, error: organizationError } = await supabase
+      .from("organizations")
+      .insert({ name: organizationName })
+      .select("id")
+      .single()
+
+    if (organizationError || !organization) {
+      console.error("[pipeline:create-opportunity] organization insert failed", {
+        code: organizationError?.code,
+        message: organizationError?.message,
+      })
+      return {
+        status: "error",
+        message: organizationError?.message ?? "No se pudo crear la empresa.",
+      }
+    }
+    organizationId = organization.id
+  }
+
+  const { data: opportunity, error } = await supabase
+    .from("opportunities")
+    .insert({
+      title,
+      organization_id: organizationId,
+      service_type: (serviceType || null) as Enums<"service_type"> | null,
+      estimated_value: estimatedValue,
+      next_action: nextAction,
+      next_action_date: nextActionDate,
+      owner_id: ownerId || null,
+      stage: "nuevo",
+    })
+    .select("id")
+    .single()
+
+  if (error || !opportunity) {
+    console.error("[pipeline:create-opportunity] opportunity insert failed", {
+      code: error?.code,
+      message: error?.message,
+    })
+    return {
+      status: "error",
+      message: error?.message ?? "No se pudo crear el proyecto.",
+    }
+  }
+
+  revalidatePath("/oportunidades")
+  revalidatePath("/")
+  redirect(`/oportunidades/${opportunity.id}`)
+}
 
 /**
  * Mueve una oportunidad de etapa.
