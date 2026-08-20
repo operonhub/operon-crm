@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { normalizeDomain, normalizeEmail } from "./dedupe"
+import { normalizeDomain, normalizeEmail, normalizeOrganizationName } from "./dedupe"
 
 describe("normalizeDomain", () => {
   it("quita protocolo, www, path y query", () => {
@@ -26,6 +26,16 @@ describe("normalizeDomain", () => {
     expect(normalizeDomain("https://www.andina.com.ar")).toBe(
       normalizeDomain("andina.com.ar")
     )
+  })
+})
+
+describe("normalizeOrganizationName", () => {
+  it("ignora mayúsculas y espacios repetidos sin quitar palabras", () => {
+    expect(normalizeOrganizationName("  Papelera   Roma ")).toBe("papelera roma")
+  })
+
+  it("devuelve null para vacío", () => {
+    expect(normalizeOrganizationName("   ")).toBeNull()
   })
 })
 

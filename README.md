@@ -1,13 +1,22 @@
 # Operon CRM
 
-CRM interno de Operon: pipeline comercial (lead → oportunidad → cliente) con módulos de
-proyectos (landing pages) y automatizaciones (n8n). Uso interno para Santiago y Tomi.
+CRM interno de Operon para operar ventas, clientes, proyectos, métricas y finanzas
+operativas en un solo lugar. Uso interno para Santiago y Tomi.
 
 > Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · shadcn/ui · Supabase (Postgres, Auth, RLS).
 
 ## Estado
 
-MVP en construcción. Fases (ver plan de producto en `docs/`):
+MVP operativo. La navegación principal está organizada por las seis áreas de trabajo:
+
+- **Hoy** — trabajo propio/equipo, agenda, alertas y resumen diario.
+- **Clientes** — ficha operativa, contactos, proyectos, historial y saldo.
+- **Pipeline** — oportunidades y leads sin duplicar el modelo comercial.
+- **Proyectos** — Sites/E-commerce, Apps/SaaS, Automatizaciones/CRM y Assets/Brand.
+- **Métricas** — indicadores comerciales, operativos y financieros con datos reales.
+- **Finanzas** — ingresos/gastos, pagos, vencimientos y saldos separados por moneda.
+
+Fases históricas (ver plan de producto en `docs/`):
 
 - [x] **Fase 1** — Fundación: esquema, RLS, auth, seed.
 - [x] Auth + shell + Dashboard "Hoy".
@@ -40,6 +49,10 @@ Migraciones versionadas en `supabase/migrations/` (orden por prefijo numérico):
 1. `0001_core_schema.sql` — enums, tablas P0, índices, triggers.
 2. `0002_rls_and_auth.sql` — RLS (solo internos autenticados) + auto-profile.
 3. `0003_harden_functions.sql` — endurecimiento de funciones.
+4. `0004_n8n_ingest.sql` — ingesta segura e idempotente desde n8n.
+5. `0005_operational_crm.sql` — áreas/modalidad de proyectos + finanzas operativas.
+6. `0006_harden_ingest_dedupe.sql` — evita entidades huérfanas al reintentar ingestas.
+7. `0007_enable_data_api.sql` — expone `public` a PostgREST; RLS sigue protegiendo los datos.
 
 Seed ficticio (no contiene datos reales): `supabase/seed.sql`.
 
@@ -49,7 +62,8 @@ Aplicá migraciones y seed con la [Supabase CLI](https://supabase.com/docs/guide
 supabase db reset            # aplica migrations + seed en la base local
 ```
 
-> En remoto, las migraciones ya fueron aplicadas al proyecto de desarrollo vía Supabase.
+> En remoto, verificá primero el proyecto vinculado y aplicá solo las migraciones
+> pendientes con `supabase db push`. No uses `db reset` contra una base remota.
 
 ### Usuarios de desarrollo (seed)
 
@@ -128,9 +142,9 @@ npm run test    # vitest (reglas de negocio: dedupe, CSV)
 
 ## Verificaciones de calidad
 
-Al cierre de la Fase 5, ejecutado y en verde:
+Validación esperada antes de entregar cambios:
 
-- `npm run test` → 14 tests (dedupe + parser CSV).
+- `npm run test` → reglas de dedupe, CSV, dashboard y finanzas.
 - `npm run lint` → sin errores.
 - `npm run build` → compila y typecheck OK.
 - RLS verificada: un anónimo no lee `leads`, `organizations` ni el secreto de

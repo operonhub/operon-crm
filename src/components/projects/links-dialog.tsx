@@ -22,6 +22,10 @@ export type ProjectLinks = {
   staging?: string
   prod?: string
   analytics?: string
+  vercel?: string
+  supabase?: string
+  n8n?: string
+  docs?: string
 }
 
 const FIELDS: { key: keyof ProjectLinks; label: string }[] = [
@@ -30,6 +34,10 @@ const FIELDS: { key: keyof ProjectLinks; label: string }[] = [
   { key: "staging", label: "Staging" },
   { key: "prod", label: "Producción" },
   { key: "analytics", label: "Analytics" },
+  { key: "vercel", label: "Vercel" },
+  { key: "supabase", label: "Supabase" },
+  { key: "n8n", label: "n8n" },
+  { key: "docs", label: "Documentación" },
 ]
 
 export function LinksDialog({

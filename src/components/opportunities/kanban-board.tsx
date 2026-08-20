@@ -1,16 +1,29 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useMemo, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { MoreVertical, AlertTriangle } from "lucide-react"
+import { MoreVertical, AlertTriangle, Search } from "lucide-react"
 import { moveStage } from "@/app/(app)/oportunidades/actions"
-import { OPPORTUNITY_STAGES, STAGE_LABELS } from "@/lib/constants"
+import {
+  ACTIVE_STAGES,
+  CLOSED_STAGES,
+  OPPORTUNITY_STAGES,
+  SERVICE_TYPE_LABELS,
+  STAGE_LABELS,
+} from "@/lib/constants"
 import { formatMoney, formatDateShort, isOverdue, todayISO } from "@/lib/format"
 import type { Enums } from "@/lib/supabase/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +45,7 @@ export type OppCard = {
   id: string
   title: string
   stage: Enums<"opportunity_stage">
+  service_type: Enums<"service_type"> | null
   estimated_value: number | null
   currency: string
   next_action: string | null
@@ -49,6 +63,27 @@ export function KanbanBoard({ opportunities }: { opportunities: OppCard[] }) {
     stage: Enums<"opportunity_stage">
     title: string
   } | null>(null)
+  const [query, setQuery] = useState("")
+  const [owner, setOwner] = useState("all")
+  const [service, setService] = useState("all")
+  const [state, setState] = useState<"active" | "closed" | "all">("active")
+
+  const owners = useMemo(
+    () => [...new Set(opportunities.map((opportunity) => opportunity.owner?.full_name).filter(Boolean) as string[])].sort(),
+    [opportunities]
+  )
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase()
+    return opportunities.filter((opportunity) => {
+      if (state === "active" && !ACTIVE_STAGES.includes(opportunity.stage)) return false
+      if (state === "closed" && !CLOSED_STAGES.includes(opportunity.stage)) return false
+      if (owner !== "all" && opportunity.owner?.full_name !== owner) return false
+      if (service !== "all" && opportunity.service_type !== service) return false
+      if (term && !`${opportunity.title} ${opportunity.organization?.name ?? ""}`.toLowerCase().includes(term)) return false
+      return true
+    })
+  }, [opportunities, owner, query, service, state])
 
   function doMove(id: string, stage: Enums<"opportunity_stage">, title: string) {
     setPending(id)
@@ -64,17 +99,47 @@ export function KanbanBoard({ opportunities }: { opportunities: OppCard[] }) {
   }
 
   const byStage = (stage: Enums<"opportunity_stage">) =>
-    opportunities.filter((o) => o.stage === stage)
+    filtered.filter((o) => o.stage === stage)
+
+  const visibleStages = OPPORTUNITY_STAGES.filter((stage) => {
+    if (state === "active") return ACTIVE_STAGES.includes(stage)
+    if (state === "closed") return CLOSED_STAGES.includes(stage)
+    return true
+  })
 
   return (
     <>
+      <div className="mb-4 grid gap-2 rounded-xl border bg-background p-3 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_12rem_13rem_11rem]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar oportunidad o empresa" className="pl-9" aria-label="Buscar oportunidades" />
+        </div>
+        <Select value={owner} onValueChange={(value) => value && setOwner(value)}>
+          <SelectTrigger><SelectValue placeholder="Responsable" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los responsables</SelectItem>
+            {owners.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={service} onValueChange={(value) => value && setService(value)}>
+          <SelectTrigger><SelectValue placeholder="Área o servicio" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los servicios</SelectItem>
+            {Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={state} onValueChange={(value) => setState(value as typeof state)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="active">Activas</SelectItem><SelectItem value="closed">Cerradas</SelectItem><SelectItem value="all">Todas</SelectItem></SelectContent>
+        </Select>
+      </div>
       <div className="flex gap-3 overflow-x-auto pb-4">
-        {OPPORTUNITY_STAGES.map((stage) => {
+        {visibleStages.map((stage) => {
           const cards = byStage(stage)
-          const total = cards.reduce(
-            (s, c) => s + (c.estimated_value ?? 0),
-            0
-          )
+          const totals = cards.reduce<Record<string, number>>((sum, card) => {
+            sum[card.currency] = (sum[card.currency] ?? 0) + (card.estimated_value ?? 0)
+            return sum
+          }, {})
           return (
             <div key={stage} className="flex w-72 shrink-0 flex-col">
               <div className="mb-2 flex items-center justify-between px-1">
@@ -83,7 +148,7 @@ export function KanbanBoard({ opportunities }: { opportunities: OppCard[] }) {
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {cards.length}
-                  {total > 0 && ` · ${formatMoney(total)}`}
+                  {Object.entries(totals).filter(([, total]) => total > 0).map(([currency, total]) => ` · ${formatMoney(total, currency)}`).join("")}
                 </span>
               </div>
               <div className="flex flex-1 flex-col gap-2 rounded-lg bg-muted/40 p-2">
@@ -113,11 +178,7 @@ export function KanbanBoard({ opportunities }: { opportunities: OppCard[] }) {
                       <span className="text-xs font-medium">
                         {formatMoney(c.estimated_value, c.currency)}
                       </span>
-                      {c.owner && (
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
-                          {c.owner.full_name.charAt(0)}
-                        </span>
-                      )}
+                      {c.owner && <span className="max-w-28 truncate text-xs text-muted-foreground">{c.owner.full_name}</span>}
                     </div>
                     {c.next_action && (
                       <div
@@ -134,6 +195,11 @@ export function KanbanBoard({ opportunities }: { opportunities: OppCard[] }) {
                         <span className="ml-auto shrink-0">
                           {formatDateShort(c.next_action_date)}
                         </span>
+                      </div>
+                    )}
+                    {!c.next_action && ACTIVE_STAGES.includes(c.stage) && (
+                      <div className="mt-2 flex items-center gap-1 border-t pt-2 text-xs text-destructive">
+                        <AlertTriangle className="h-3 w-3" /> Sin próxima acción
                       </div>
                     )}
                   </div>
@@ -183,7 +249,7 @@ function MoveMenu({
           <Button
             variant="ghost"
             size="icon-xs"
-            className="opacity-0 group-hover:opacity-100"
+            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           />
         }
       >

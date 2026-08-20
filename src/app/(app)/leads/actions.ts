@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { normalizeDomain, normalizeEmail } from "@/lib/dedupe"
+import {
+  normalizeDomain,
+  normalizeEmail,
+  normalizeOrganizationName,
+} from "@/lib/dedupe"
 import { parseCSV, normalizeHeader } from "@/lib/csv"
 import { LEAD_SOURCE_LABELS, SERVICE_TYPE_LABELS } from "@/lib/constants"
 import type { Enums } from "@/lib/supabase/types"
@@ -62,6 +66,26 @@ export async function createLead(
           kind: "organization",
           label: o.name,
           detail: `Mismo dominio: ${o.domain}`,
+        })
+      }
+    }
+
+    const normalizedName = normalizeOrganizationName(orgName)
+    if (normalizedName) {
+      const { data: namedOrgs } = await supabase
+        .from("organizations")
+        .select("id, name, domain")
+        .ilike("name", orgName.trim())
+        .limit(3)
+      for (const organization of namedOrgs ?? []) {
+        if (normalizeOrganizationName(organization.name) !== normalizedName) continue
+        if (duplicates.some((duplicate) => duplicate.kind === "organization" && duplicate.label === organization.name)) continue
+        duplicates.push({
+          kind: "organization",
+          label: organization.name,
+          detail: organization.domain
+            ? `Mismo nombre · dominio ${organization.domain}`
+            : "Mismo nombre normalizado",
         })
       }
     }
@@ -292,6 +316,7 @@ export async function importLeads(
 
     const domain = normalizeDomain(get("web"))
     const email = normalizeEmail(get("email"))
+    const normalizedName = normalizeOrganizationName(empresa)
 
     // Dedupe: saltar si ya existe org (por dominio) o contacto (por email).
     if (domain) {
@@ -314,6 +339,17 @@ export async function importLeads(
         .limit(1)
         .maybeSingle()
       if (data) {
+        skipped++
+        continue
+      }
+    }
+    if (!domain && normalizedName) {
+      const { data: names } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .ilike("name", empresa)
+        .limit(5)
+      if ((names ?? []).some((organization) => normalizeOrganizationName(organization.name) === normalizedName)) {
         skipped++
         continue
       }

@@ -8,14 +8,14 @@ export function PageHeader({
   children?: React.ReactNode
 }) {
   return (
-    <div className="flex h-14 items-center justify-between border-b bg-background px-6">
-      <div>
-        <h1 className="text-lg font-semibold leading-none">{title}</h1>
+    <div className="flex min-h-14 flex-col gap-3 border-b bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="min-w-0">
+        <h1 className="truncate font-heading text-lg font-semibold leading-none tracking-tight">{title}</h1>
         {description && (
           <p className="mt-1 text-xs text-muted-foreground">{description}</p>
         )}
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </div>
   )
 }

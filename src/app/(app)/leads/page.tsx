@@ -17,6 +17,7 @@ import {
 import { SERVICE_TYPE_LABELS } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 import type { Enums } from "@/lib/supabase/types"
+import { PipelineTabs } from "@/components/pipeline/pipeline-tabs"
 
 type SearchParams = Promise<{ q?: string; status?: string; source?: string }>
 
@@ -57,12 +58,13 @@ export default async function LeadsPage({
 
   return (
     <>
-      <PageHeader title="Leads" description={`${leads.length} lead(s)`}>
+      <PageHeader title="Pipeline" description={`${leads.length} lead${leads.length === 1 ? "" : "s"} en la bandeja de entrada`}>
+        <PipelineTabs />
         <ImportCsvDialog profiles={profiles} />
         <NewLeadDialog profiles={profiles} />
       </PageHeader>
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 p-4 sm:p-6">
         <LeadFilterBar />
 
         <div className="rounded-lg border bg-background">

@@ -339,6 +339,82 @@ export type Database = {
           },
         ]
       }
+      financial_records: {
+        Row: {
+          canceled_at: string | null
+          client_id: string | null
+          concept: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          due_date: string | null
+          id: string
+          notes: string | null
+          paid_amount: number
+          paid_at: string | null
+          project_id: string | null
+          record_type: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          canceled_at?: string | null
+          client_id?: string | null
+          concept: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          paid_amount?: number
+          paid_at?: string | null
+          project_id?: string | null
+          record_type: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          canceled_at?: string | null
+          client_id?: string | null
+          concept?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          paid_amount?: number
+          paid_at?: string | null
+          project_id?: string | null
+          record_type?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_records_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           campaign_id: string | null
@@ -648,16 +724,19 @@ export type Database = {
       }
       projects: {
         Row: {
+          area: string
           client_id: string | null
           conversion_goal: string | null
           created_at: string
           created_by: string | null
           due_date: string | null
+          engagement_kind: string
           id: string
           kpi: string | null
           links: Json
           name: string
           opportunity_id: string | null
+          operational_type: string | null
           owner_id: string | null
           scope: string | null
           start_date: string | null
@@ -666,16 +745,19 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          area?: string
           client_id?: string | null
           conversion_goal?: string | null
           created_at?: string
           created_by?: string | null
           due_date?: string | null
+          engagement_kind?: string
           id?: string
           kpi?: string | null
           links?: Json
           name: string
           opportunity_id?: string | null
+          operational_type?: string | null
           owner_id?: string | null
           scope?: string | null
           start_date?: string | null
@@ -684,16 +766,19 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          area?: string
           client_id?: string | null
           conversion_goal?: string | null
           created_at?: string
           created_by?: string | null
           due_date?: string | null
+          engagement_kind?: string
           id?: string
           kpi?: string | null
           links?: Json
           name?: string
           opportunity_id?: string | null
+          operational_type?: string | null
           owner_id?: string | null
           scope?: string | null
           start_date?: string | null
@@ -726,7 +811,30 @@ export type Database = {
         ]
       }
     }
-    Views: { [_ in never]: never }
+    Views: {
+      financial_records_operational: {
+        Row: {
+          balance: number | null
+          canceled_at: string | null
+          client_id: string | null
+          concept: string | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          due_date: string | null
+          id: string | null
+          notes: string | null
+          operational_status: string | null
+          paid_amount: number | null
+          paid_at: string | null
+          project_id: string | null
+          record_type: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+    }
     Functions: { [_ in never]: never }
     Enums: {
       activity_type: "nota" | "llamada" | "email" | "reunion" | "tarea"
