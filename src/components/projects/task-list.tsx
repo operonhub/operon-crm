@@ -2,19 +2,29 @@
 
 import { useActionState, useEffect, useRef, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Plus } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
 import { addTask, toggleTask } from "@/app/(app)/proyectos/actions"
-import { PRIORITY_LABELS } from "@/lib/constants"
+import { PRIORITY_LABELS, TASK_STATUS_LABELS } from "@/lib/constants"
+import { formatDateShort } from "@/lib/format"
 import type { Enums } from "@/lib/supabase/types"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export type Task = {
   id: string
   title: string
   status: Enums<"task_status">
   priority: Enums<"priority_level">
+  due_date: string | null
+  owner: { full_name: string } | null
 }
 
 export function TaskList({
@@ -73,24 +83,45 @@ function TaskRow({ task, projectId }: { task: Task; projectId: string }) {
   const completed = task.status === "completada"
 
   function toggle(next: boolean) {
+    changeStatus(next ? "completada" : "pendiente")
+  }
+
+  function changeStatus(status: Enums<"task_status">) {
     startTransition(async () => {
-      await toggleTask(task.id, next ? "completada" : "pendiente", projectId)
+      await toggleTask(task.id, status, projectId)
       router.refresh()
     })
   }
 
   return (
-    <label className="flex items-center gap-3 rounded-md border p-2.5 text-sm">
+    <div className="flex items-center gap-3 rounded-md border p-2.5 text-sm">
       <Checkbox
         checked={completed}
         onCheckedChange={(v) => toggle(v === true)}
+        aria-label={`${completed ? "Reabrir" : "Completar"} ${task.title}`}
       />
-      <span className={completed ? "text-muted-foreground line-through" : ""}>
-        {task.title}
-      </span>
-      <span className="ml-auto text-xs text-muted-foreground">
-        {PRIORITY_LABELS[task.priority]}
-      </span>
-    </label>
+      <div className="min-w-0 flex-1">
+        <span className={completed ? "text-muted-foreground line-through" : ""}>{task.title}</span>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {TASK_STATUS_LABELS[task.status]}
+          {task.owner?.full_name && ` · ${task.owner.full_name}`}
+          {task.due_date && ` · ${formatDateShort(task.due_date)}`}
+        </p>
+      </div>
+      <span className="text-xs text-muted-foreground">{PRIORITY_LABELS[task.priority]}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label={`Cambiar estado de ${task.title}`} />}>
+          <MoreHorizontal className="h-4 w-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Estado</DropdownMenuLabel>
+          {Object.entries(TASK_STATUS_LABELS).map(([status, label]) => (
+            <DropdownMenuItem key={status} disabled={task.status === status} onClick={() => changeStatus(status as Enums<"task_status">)}>
+              {label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }

@@ -16,3 +16,12 @@ export function normalizeEmail(input: string | null | undefined): string | null 
   const s = input.trim().toLowerCase()
   return s || null
 }
+
+/** Comparación conservadora de razón social: mayúsculas y espacios no crean otra entidad. */
+export function normalizeOrganizationName(
+  input: string | null | undefined
+): string | null {
+  if (!input) return null
+  const normalized = input.trim().replace(/\s+/g, " ").toLocaleLowerCase("es")
+  return normalized || null
+}

@@ -56,7 +56,7 @@ insert into auth.identities (
 on conflict do nothing;
 
 -- ---------- Datos de negocio (idempotente) ----------
-truncate activities, project_tasks, automations, projects, clients,
+truncate activities, project_tasks, automations, financial_records, projects, clients,
          opportunities, leads, contacts, campaigns, organizations
   restart identity cascade;
 
@@ -95,8 +95,8 @@ insert into opportunities (id,lead_id,organization_id,contact_id,title,stage,ser
 insert into clients (id,organization_id,opportunity_id,status,start_date,owner_id,notes,created_by) values
 ('c1000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000001','0bb00000-0000-0000-0000-000000000001','activo','2026-07-30','11111111-1111-1111-1111-111111111111','Primer cliente de landing','11111111-1111-1111-1111-111111111111');
 
-insert into projects (id,client_id,opportunity_id,name,type,status,scope,conversion_goal,owner_id,start_date,due_date,links,created_by) values
-('a9000000-0000-0000-0000-000000000001','c1000000-0000-0000-0000-000000000001','0bb00000-0000-0000-0000-000000000001','Landing Don Carlos','landing_page','en_progreso','Landing de venta con catálogo y formulario','Pedidos por WhatsApp','11111111-1111-1111-1111-111111111111','2026-08-01','2026-08-20','{"figma":"https://figma.com/demo","staging":"https://doncarlos-staging.vercel.app"}'::jsonb,'11111111-1111-1111-1111-111111111111');
+insert into projects (id,client_id,opportunity_id,name,type,area,engagement_kind,operational_type,status,scope,conversion_goal,owner_id,start_date,due_date,links,created_by) values
+('a9000000-0000-0000-0000-000000000001','c1000000-0000-0000-0000-000000000001','0bb00000-0000-0000-0000-000000000001','Landing Don Carlos','landing_page','sites_ecommerce','client','landing comercial','en_progreso','Landing de venta con catálogo y formulario','Pedidos por WhatsApp','11111111-1111-1111-1111-111111111111','2026-08-01','2026-08-20','{"figma":"https://figma.com/demo","staging":"https://doncarlos-staging.vercel.app"}'::jsonb,'11111111-1111-1111-1111-111111111111');
 
 insert into project_tasks (project_id,title,status,priority,owner_id,position,created_by) values
 ('a9000000-0000-0000-0000-000000000001','Brief aprobado','completada','alta','11111111-1111-1111-1111-111111111111',1,'11111111-1111-1111-1111-111111111111'),
@@ -105,6 +105,10 @@ insert into project_tasks (project_id,title,status,priority,owner_id,position,cr
 ('a9000000-0000-0000-0000-000000000001','Desarrollo','pendiente','media','11111111-1111-1111-1111-111111111111',4,'11111111-1111-1111-1111-111111111111'),
 ('a9000000-0000-0000-0000-000000000001','QA responsive','pendiente','media',null,5,'11111111-1111-1111-1111-111111111111'),
 ('a9000000-0000-0000-0000-000000000001','Publicación + dominio','pendiente','alta',null,6,'11111111-1111-1111-1111-111111111111');
+
+insert into financial_records (id,record_type,concept,currency,total_amount,paid_amount,due_date,paid_at,client_id,project_id,notes,created_by) values
+('f1000000-0000-0000-0000-000000000001','income','Landing Don Carlos — anticipo','USD',600,300,'2026-08-20','2026-08-01','c1000000-0000-0000-0000-000000000001','a9000000-0000-0000-0000-000000000001','Saldo contra publicación','11111111-1111-1111-1111-111111111111'),
+('f1000000-0000-0000-0000-000000000002','expense','Herramientas operativas','ARS',45000,45000,'2026-08-05','2026-08-05',null,null,'Gasto ficticio para validar el resumen por moneda','11111111-1111-1111-1111-111111111111');
 
 insert into automations (project_id,name,n8n_workflow_id,n8n_url,environment,status,trigger,secret_ref,created_by) values
 (null,'Ingesta leads IronFit desde IG','wf_ig_leads_001','https://n8n.operon.dev/workflow/wf_ig_leads_001','produccion','construccion','Webhook IG Lead Ads','n8n_cred:ig_operon','11111111-1111-1111-1111-111111111111');

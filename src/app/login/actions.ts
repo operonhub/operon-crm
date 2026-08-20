@@ -15,6 +15,17 @@ export async function login(_prevState: unknown, formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
+    const connectionFailure =
+      error.name === "AuthRetryableFetchError" ||
+      /fetch failed|failed to fetch|enotfound|network/i.test(error.message)
+
+    if (connectionFailure) {
+      return {
+        error:
+          "No se pudo conectar con Supabase. Revisá la configuración del proyecto.",
+      }
+    }
+
     return { error: "Credenciales inválidas." }
   }
 

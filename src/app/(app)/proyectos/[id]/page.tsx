@@ -1,16 +1,28 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, ExternalLink, Zap } from "lucide-react"
+import { ArrowLeft, CalendarClock, ExternalLink, WalletCards, Zap } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
 import { ServiceTypeBadge } from "@/components/project-badges"
 import { ProjectStatusControl } from "@/components/projects/status-control"
 import { LinksDialog, type ProjectLinks } from "@/components/projects/links-dialog"
 import { TaskList, type Task } from "@/components/projects/task-list"
+import { ProjectOperationalDialog } from "@/components/projects/operational-dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AUTOMATION_STATUS_LABELS } from "@/lib/constants"
-import { formatDate } from "@/lib/format"
+import {
+  ACTIVITY_TYPE_LABELS,
+  AUTOMATION_STATUS_LABELS,
+  FINANCIAL_STATUS_LABELS,
+  PROJECT_AREA_LABELS,
+  PROJECT_ENGAGEMENT_LABELS,
+  type FinancialRecordType,
+  type ProjectArea,
+  type ProjectEngagement,
+  type SupportedCurrency,
+} from "@/lib/constants"
+import { financialBalance, financialStatus, summarizeFinances } from "@/lib/finance"
+import { formatDate, formatMoney, todayISO } from "@/lib/format"
 
 const LINK_LABELS: Record<string, string> = {
   figma: "Figma",
@@ -18,6 +30,10 @@ const LINK_LABELS: Record<string, string> = {
   staging: "Staging",
   prod: "Producción",
   analytics: "Analytics",
+  vercel: "Vercel",
+  supabase: "Supabase",
+  n8n: "n8n",
+  docs: "Documentación",
 }
 
 export default async function ProjectDetailPage({
@@ -31,7 +47,7 @@ export default async function ProjectDetailPage({
   const { data: project } = await supabase
     .from("projects")
     .select(
-      `id, name, type, status, scope, conversion_goal, kpi, start_date, due_date, links,
+      `id, name, type, area, engagement_kind, operational_type, status, scope, conversion_goal, kpi, start_date, due_date, links,
        client:clients(id, organization:organizations(id, name)),
        owner:profiles!projects_owner_id_fkey(full_name),
        opportunity:opportunities(id, title)`
@@ -41,17 +57,46 @@ export default async function ProjectDetailPage({
 
   if (!project) notFound()
 
-  const [{ data: tasks }, { data: automations }] = await Promise.all([
+  const [tasksRes, automationsRes, activitiesRes, financeRes, clientsRes] = await Promise.all([
     supabase
       .from("project_tasks")
-      .select("id, title, status, priority")
+      .select("id, title, status, priority, due_date, owner:profiles!project_tasks_owner_id_fkey(full_name)")
       .eq("project_id", id)
       .order("position"),
     supabase
       .from("automations")
-      .select("id, name, n8n_url, environment, status, secret_ref")
+      .select("id, name, n8n_url, environment, status, last_result, last_run_at")
       .eq("project_id", id),
+    supabase
+      .from("activities")
+      .select("id, type, body, due_date, completed, created_at")
+      .eq("project_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("financial_records")
+      .select("id, record_type, concept, currency, total_amount, paid_amount, due_date, paid_at, canceled_at, created_at")
+      .eq("project_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("clients")
+      .select("id, organization:organizations(name)")
+      .order("created_at", { ascending: false }),
   ])
+
+  const tasks = tasksRes.data ?? []
+  const automations = automationsRes.data ?? []
+  const activities = activitiesRes.data ?? []
+  const today = todayISO()
+  const finances = (financeRes.data ?? []).map((record) => ({
+    ...record,
+    record_type: record.record_type as FinancialRecordType,
+    currency: record.currency as SupportedCurrency,
+  }))
+  const financeSummary = summarizeFinances(finances, today)
+  const clients = (clientsRes.data ?? []).map((client) => ({
+    id: client.id,
+    name: client.organization?.name ?? "Cliente sin organización",
+  }))
 
   const links = (project.links ?? {}) as ProjectLinks
   const linkEntries = Object.entries(links).filter(([, v]) => v)
@@ -59,6 +104,14 @@ export default async function ProjectDetailPage({
   return (
     <>
       <PageHeader title={project.name}>
+        <ProjectOperationalDialog
+          projectId={project.id}
+          area={project.area as ProjectArea}
+          engagementKind={project.engagement_kind as ProjectEngagement}
+          operationalType={project.operational_type}
+          clientId={project.client?.id ?? null}
+          clients={clients}
+        />
         <LinksDialog projectId={project.id} links={links} />
         <ProjectStatusControl
           projectId={project.id}
@@ -77,9 +130,12 @@ export default async function ProjectDetailPage({
 
         <div className="flex flex-wrap items-center gap-2">
           <ServiceTypeBadge type={project.type} />
+          <Badge variant="secondary">{PROJECT_AREA_LABELS[project.area as ProjectArea]}</Badge>
+          <Badge variant="outline">{PROJECT_ENGAGEMENT_LABELS[project.engagement_kind as ProjectEngagement]}</Badge>
+          {project.operational_type && <span className="text-sm text-muted-foreground">{project.operational_type}</span>}
           {project.client?.organization && (
             <Link
-              href={`/organizaciones/${project.client.organization.id}`}
+              href={`/clientes/${project.client.id}`}
               className="text-sm text-muted-foreground hover:text-foreground"
             >
               {project.client.organization.name}
@@ -95,6 +151,9 @@ export default async function ProjectDetailPage({
               </CardHeader>
               <CardContent className="space-y-1 text-sm">
                 <Field label="Responsable" value={project.owner?.full_name} />
+                <Field label="Área" value={PROJECT_AREA_LABELS[project.area as ProjectArea]} />
+                <Field label="Modalidad" value={PROJECT_ENGAGEMENT_LABELS[project.engagement_kind as ProjectEngagement]} />
+                <Field label="Tipo operativo" value={project.operational_type} />
                 <Field label="Inicio" value={formatDate(project.start_date)} />
                 <Field label="Entrega" value={formatDate(project.due_date)} />
                 {project.conversion_goal && (
@@ -155,7 +214,7 @@ export default async function ProjectDetailPage({
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                         <span>{a.environment}</span>
-                        {a.secret_ref && <span>🔒 {a.secret_ref}</span>}
+                        {a.last_result && <span>Último resultado: {a.last_result}</span>}
                         {a.n8n_url && (
                           <a
                             href={a.n8n_url}
@@ -174,7 +233,7 @@ export default async function ProjectDetailPage({
             )}
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="space-y-4 lg:col-span-2">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm">Checklist</CardTitle>
@@ -186,11 +245,45 @@ export default async function ProjectDetailPage({
                 />
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm"><CalendarClock className="h-4 w-4" /> Actividad</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {activities.length > 0 ? activities.slice(0, 10).map((activity) => (
+                  <div key={activity.id} className="flex items-start justify-between gap-3 rounded-md border p-3 text-sm">
+                    <div><p>{activity.body || "Actividad sin detalle"}</p><p className="mt-0.5 text-xs text-muted-foreground">{ACTIVITY_TYPE_LABELS[activity.type]}{activity.completed ? " · Completada" : ""}</p></div>
+                    <span className="shrink-0 text-xs text-muted-foreground">{formatDate(activity.due_date ?? activity.created_at)}</span>
+                  </div>
+                )) : <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">Sin actividad registrada.</p>}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><WalletCards className="h-4 w-4" /> Finanzas relacionadas</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <MoneyStat label="Cobrado" ars={financeSummary.collectedThisMonth.ARS} usd={financeSummary.collectedThisMonth.USD} />
+                  <MoneyStat label="Pendiente" ars={financeSummary.pending.ARS} usd={financeSummary.pending.USD} />
+                  <MoneyStat label="Vencido" ars={financeSummary.overdue.ARS} usd={financeSummary.overdue.USD} danger />
+                </div>
+                {finances.length > 0 ? finances.slice(0, 6).map((record) => {
+                  const status = financialStatus(record, today)
+                  return <div key={record.id} className="flex items-center justify-between gap-3 border-t pt-3 text-sm"><div className="min-w-0"><p className="truncate">{record.concept}</p><p className="text-xs text-muted-foreground">{FINANCIAL_STATUS_LABELS[status]}</p></div><span className={status === "overdue" ? "font-mono text-destructive" : "font-mono"}>{formatMoney(financialBalance(record), record.currency)}</span></div>
+                }) : <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">Sin registros financieros para este proyecto.</p>}
+                <Link href="/finanzas" className="inline-flex text-xs text-primary hover:underline">Abrir Finanzas</Link>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
     </>
   )
+}
+
+function MoneyStat({ label, ars, usd, danger = false }: { label: string; ars: number; usd: number; danger?: boolean }) {
+  return <div className="rounded-md bg-muted/50 p-2"><p className="text-[10px] text-muted-foreground">{label}</p><div className={`mt-1 font-mono text-[11px] ${danger && (ars > 0 || usd > 0) ? "text-destructive" : ""}`}><p>{formatMoney(ars, "ARS")}</p><p>{formatMoney(usd, "USD")}</p></div></div>
 }
 
 function Field({ label, value }: { label: string; value?: string | null }) {

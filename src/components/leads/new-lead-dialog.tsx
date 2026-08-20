@@ -29,8 +29,24 @@ type Profile = { id: string; full_name: string }
 
 const initial: LeadFormState = { status: "idle" }
 
-export function NewLeadDialog({ profiles }: { profiles: Profile[] }) {
-  const [open, setOpen] = useState(false)
+/**
+ * Se usa suelto en /leads (con su propio botón) y controlado desde el menú
+ * "Crear" del panel, que abre el diálogo sin renderizar un segundo trigger.
+ */
+export function NewLeadDialog({
+  profiles,
+  open: openProp,
+  onOpenChange,
+  showTrigger = true,
+}: {
+  profiles: Profile[]
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  showTrigger?: boolean
+}) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const open = openProp ?? uncontrolledOpen
+  const setOpen = onOpenChange ?? setUncontrolledOpen
   const [state, formAction, pending] = useActionState(createLead, initial)
   const formRef = useRef<HTMLFormElement>(null)
   const forceRef = useRef<HTMLInputElement>(null)
@@ -49,10 +65,12 @@ export function NewLeadDialog({ profiles }: { profiles: Profile[] }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" />}>
-        <Plus className="mr-1 h-4 w-4" />
-        Nuevo lead
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger render={<Button size="sm" />}>
+          <Plus className="mr-1 h-4 w-4" />
+          Nuevo lead
+        </DialogTrigger>
+      )}
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nuevo lead</DialogTitle>
@@ -108,7 +126,12 @@ export function NewLeadDialog({ profiles }: { profiles: Profile[] }) {
           <fieldset className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Fuente</Label>
-              <Select name="source" defaultValue="lista_manual">
+              {/* `items` hace que el trigger muestre la etiqueta y no el valor crudo. */}
+              <Select
+                name="source"
+                defaultValue="lista_manual"
+                items={LEAD_SOURCE_LABELS}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -123,7 +146,7 @@ export function NewLeadDialog({ profiles }: { profiles: Profile[] }) {
             </div>
             <div className="space-y-1.5">
               <Label>Servicio de interés</Label>
-              <Select name="service_interest">
+              <Select name="service_interest" items={SERVICE_TYPE_LABELS}>
                 <SelectTrigger>
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
@@ -140,7 +163,12 @@ export function NewLeadDialog({ profiles }: { profiles: Profile[] }) {
 
           <div className="space-y-1.5">
             <Label>Responsable</Label>
-            <Select name="owner_id">
+            <Select
+              name="owner_id"
+              items={Object.fromEntries(
+                profiles.map((p) => [p.id, p.full_name])
+              )}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Sin asignar" />
               </SelectTrigger>

@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { PROJECT_TASK_TEMPLATES } from "@/lib/constants"
+import {
+  PROJECT_AREAS,
+  PROJECT_TASK_TEMPLATES,
+  type ProjectArea,
+} from "@/lib/constants"
+import type { ActionResult } from "@/lib/action-result"
 import type { Enums, TablesUpdate } from "@/lib/supabase/types"
 
 function str(fd: FormData, key: string): string {
@@ -21,9 +26,14 @@ export async function winOpportunity(_prev: unknown, fd: FormData) {
   const projectName = str(fd, "project_name")
   const projectType = (str(fd, "project_type") ||
     "landing_page") as Enums<"service_type">
+  const projectArea = str(fd, "project_area") as ProjectArea
+  const operationalType = str(fd, "operational_type")
 
   if (!opportunityId) return { error: "Falta la oportunidad." }
   if (!projectName) return { error: "El nombre del proyecto es obligatorio." }
+  if (!PROJECT_AREAS.includes(projectArea)) {
+    return { error: "Elegí un área de Operon para el proyecto." }
+  }
 
   const { data: opp } = await supabase
     .from("opportunities")
@@ -73,6 +83,9 @@ export async function winOpportunity(_prev: unknown, fd: FormData) {
       opportunity_id: opportunityId,
       name: projectName,
       type: projectType,
+      area: projectArea,
+      engagement_kind: "client",
+      operational_type: operationalType || null,
       status: "discovery",
       owner_id: opp.owner_id,
     })
@@ -97,6 +110,7 @@ export async function winOpportunity(_prev: unknown, fd: FormData) {
 
   revalidatePath("/oportunidades")
   revalidatePath("/proyectos")
+  revalidatePath("/clientes")
   redirect(`/proyectos/${project.id}`)
 }
 
@@ -110,21 +124,78 @@ export async function updateProjectStatus(
   revalidatePath(`/proyectos/${id}`)
 }
 
+export async function updateProjectOperationalData(
+  _prev: unknown,
+  fd: FormData
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const id = str(fd, "project_id")
+  const area = str(fd, "area") as ProjectArea
+  const engagementKind = str(fd, "engagement_kind")
+  const operationalType = str(fd, "operational_type")
+  const clientId = str(fd, "client_id")
+
+  if (!id) return { error: "Falta el proyecto." }
+  if (!PROJECT_AREAS.includes(area)) return { error: "Elegí un área válida." }
+  if (engagementKind !== "internal" && engagementKind !== "client") {
+    return { error: "Elegí la modalidad del proyecto." }
+  }
+  if (engagementKind === "client" && !clientId) {
+    return { error: "Elegí el cliente del proyecto." }
+  }
+
+  const { error } = await supabase
+    .from("projects")
+    .update({
+      area,
+      engagement_kind: engagementKind,
+      operational_type: operationalType || null,
+      client_id: engagementKind === "client" ? clientId : null,
+    })
+    .eq("id", id)
+  if (error) return { error: error.message }
+
+  revalidatePath("/")
+  revalidatePath("/proyectos")
+  revalidatePath(`/proyectos/${id}`)
+  revalidatePath("/clientes")
+  return { ok: true }
+}
+
 export async function toggleTask(
   taskId: string,
   status: Enums<"task_status">,
   projectId: string
-) {
+): Promise<ActionResult> {
   const supabase = await createClient()
-  await supabase.from("project_tasks").update({ status }).eq("id", taskId)
+  const { error } = await supabase
+    .from("project_tasks")
+    .update({ status })
+    .eq("id", taskId)
+  if (error) return { error: error.message }
+
   revalidatePath(`/proyectos/${projectId}`)
+  revalidatePath("/")
+  return { ok: true }
 }
 
-export async function addTask(_prev: unknown, fd: FormData) {
+/**
+ * Alta de tarea. `priority`, `due_date` y `owner_id` son opcionales: el
+ * checklist del proyecto no los manda, el alta rápida del panel sí.
+ */
+export async function addTask(
+  _prev: unknown,
+  fd: FormData
+): Promise<ActionResult> {
   const supabase = await createClient()
   const projectId = str(fd, "project_id")
   const title = str(fd, "title")
-  if (!projectId || !title) return { error: "Falta el título." }
+  if (!projectId) return { error: "Elegí un proyecto." }
+  if (!title) return { error: "Falta el título." }
+
+  const priority = str(fd, "priority")
+  const dueDate = str(fd, "due_date")
+  const ownerId = str(fd, "owner_id")
 
   const { count } = await supabase
     .from("project_tasks")
@@ -135,10 +206,14 @@ export async function addTask(_prev: unknown, fd: FormData) {
     project_id: projectId,
     title,
     position: (count ?? 0) + 1,
+    ...(priority ? { priority: priority as Enums<"priority_level"> } : {}),
+    ...(dueDate ? { due_date: dueDate } : {}),
+    ...(ownerId ? { owner_id: ownerId } : {}),
   })
   if (error) return { error: error.message }
 
   revalidatePath(`/proyectos/${projectId}`)
+  revalidatePath("/")
   return { ok: true }
 }
 
@@ -154,6 +229,10 @@ export async function updateProjectLinks(_prev: unknown, fd: FormData) {
     staging: str(fd, "staging") || undefined,
     prod: str(fd, "prod") || undefined,
     analytics: str(fd, "analytics") || undefined,
+    vercel: str(fd, "vercel") || undefined,
+    supabase: str(fd, "supabase") || undefined,
+    n8n: str(fd, "n8n") || undefined,
+    docs: str(fd, "docs") || undefined,
   }
 
   const patch: TablesUpdate<"projects"> = { links }

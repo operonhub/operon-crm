@@ -72,8 +72,15 @@ export const SERVICE_TYPE_LABELS: Record<Enums<"service_type">, string> = {
   landing_page: "Landing page",
   automation: "Automatización",
   lead_generation: "Generación de leads",
-  package: "Paquete",
+  package: "Paquete legado",
 }
+
+/** `package` se conserva por compatibilidad, pero no se ofrece en altas nuevas. */
+export const PROJECT_TEMPLATE_TYPES: Enums<"service_type">[] = [
+  "landing_page",
+  "automation",
+  "lead_generation",
+]
 
 // ---------- Actividades ----------
 export const ACTIVITY_TYPE_LABELS: Record<Enums<"activity_type">, string> = {
@@ -85,6 +92,44 @@ export const ACTIVITY_TYPE_LABELS: Record<Enums<"activity_type">, string> = {
 }
 
 // ---------- Proyectos ----------
+export const PROJECT_AREAS = [
+  "sites_ecommerce",
+  "apps_saas",
+  "automations_crm",
+  "assets_brand",
+] as const
+
+export type ProjectArea = (typeof PROJECT_AREAS)[number]
+
+export const PROJECT_AREA_LABELS: Record<ProjectArea, string> = {
+  sites_ecommerce: "Sites & Ecommerce",
+  apps_saas: "Apps & SaaS",
+  automations_crm: "Automatizaciones & CRM",
+  assets_brand: "Activos Digitales & Marca",
+}
+
+export const PROJECT_AREA_DESCRIPTIONS: Record<ProjectArea, string> = {
+  sites_ecommerce: "Sitios, tiendas y experiencias de venta",
+  apps_saas: "Productos de software propios y para clientes",
+  automations_crm: "Flujos, agentes, CRM y operación con n8n",
+  assets_brand: "Contenido, SEO, marca y activos de audiencia",
+}
+
+export const PROJECT_ENGAGEMENT_LABELS = {
+  client: "Para cliente",
+  internal: "Interno",
+} as const
+
+export type ProjectEngagement = keyof typeof PROJECT_ENGAGEMENT_LABELS
+
+/** Estados de proyecto que siguen en curso (aparecen en el panel operativo). */
+export const ACTIVE_PROJECT_STATUSES: Enums<"project_status">[] = [
+  "discovery",
+  "en_progreso",
+  "revision",
+  "activo",
+]
+
 export const PROJECT_STATUS_LABELS: Record<Enums<"project_status">, string> = {
   discovery: "Discovery",
   en_progreso: "En progreso",
@@ -125,6 +170,27 @@ export const AUTOMATION_STATUS_LABELS: Record<
   pausado: "Pausado",
   monitoreo: "Monitoreo",
 }
+
+// ---------- Finanzas operativas ----------
+export const FINANCIAL_RECORD_TYPE_LABELS = {
+  income: "Ingreso",
+  expense: "Gasto",
+} as const
+
+export type FinancialRecordType = keyof typeof FINANCIAL_RECORD_TYPE_LABELS
+
+export const FINANCIAL_STATUS_LABELS = {
+  pending: "Pendiente",
+  partial: "Parcial",
+  paid: "Cobrado",
+  overdue: "Vencido",
+  cancelled: "Cancelado",
+} as const
+
+export type FinancialStatus = keyof typeof FINANCIAL_STATUS_LABELS
+
+export const SUPPORTED_CURRENCIES = ["ARS", "USD"] as const
+export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number]
 
 // ---------- Plantillas de checklist por tipo de proyecto ----------
 export const PROJECT_TASK_TEMPLATES: Record<
