@@ -99,11 +99,14 @@ export async function createTestDb(): Promise<TestDb> {
    * privilegios por defecto (verificado contra la base real). Lo replicamos
    * para que lo único que restrinja el acceso en las pruebas sea la RLS, y no
    * un GRANT ausente que nos daría un falso positivo.
+   *
+   * A propósito NO se otorgan las funciones: si una política llama a una
+   * función sin EXECUTE para `authenticated`, tiene que fallar acá igual que
+   * fallaría en producción.
    */
   await db.exec(`
     grant all on all tables in schema public to anon, authenticated, service_role;
     grant all on all sequences in schema public to anon, authenticated, service_role;
-    grant all on all functions in schema public to anon, authenticated, service_role;
   `)
 
   async function admin<T>(sql: string, params: unknown[] = []): Promise<T[]> {
