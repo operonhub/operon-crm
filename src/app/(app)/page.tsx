@@ -13,6 +13,7 @@ import { DashboardTasks } from "@/components/dashboard/dashboard-tasks"
 import { DashboardAgenda } from "@/components/dashboard/dashboard-agenda"
 import { ActiveClients } from "@/components/dashboard/active-clients"
 import { Section } from "@/components/dashboard/section"
+import { DailyTeamUpdate } from "@/components/dashboard/daily-team-update"
 
 /** Cuánto se muestra en el panel antes de mandar a la sección completa. */
 const PROJECTS_LIMIT = 5
@@ -43,6 +44,14 @@ export default async function DashboardPage({
     getQuickCreateOptions(),
   ])
 
+  const { data: dailyUpdates } = await supabase
+    .from("daily_updates")
+    .select(
+      "id, profile_id, progress, next_focus, blocker, needs_help, updated_at, profile:profiles!daily_updates_profile_id_fkey(full_name)"
+    )
+    .eq("update_date", data.today)
+    .order("updated_at", { ascending: false })
+
   const mine = scope === "mine"
   const scopeSuffix = mine ? "de tu trabajo" : "de todo el equipo"
 
@@ -53,17 +62,14 @@ export default async function DashboardPage({
         scope={scope}
         options={quickCreateOptions}
       />
+      <DashboardSummary summary={data.summary} scopeSuffix={scopeSuffix} />
 
       {/*
         Un único flujo con `order`: en mobile manda lo urgente (alertas, tareas,
         agenda) y en desktop pasa a dos columnas, con proyectos como bloque
         principal y agenda/clientes en la columna lateral.
       */}
-      <div className="flex flex-col gap-6 p-4 sm:p-6 lg:grid lg:grid-cols-3 lg:items-start">
-        <div className="order-4 lg:order-1 lg:col-span-3">
-          <DashboardSummary summary={data.summary} scopeSuffix={scopeSuffix} />
-        </div>
-
+      <div className="flex flex-col gap-6 p-4 pt-6 sm:p-6 sm:pt-8 lg:grid lg:grid-cols-3 lg:items-start">
         <div className="order-3 lg:order-4 lg:col-span-3">
           <Section
             id="alertas"
@@ -100,7 +106,7 @@ export default async function DashboardPage({
             title={mine ? "Mis tareas" : "Tareas del equipo"}
             count={data.tasks.length}
           >
-            <DashboardTasks tasks={data.tasks} />
+            <DashboardTasks tasks={data.tasks} profiles={quickCreateOptions.profiles} />
           </Section>
         </div>
 
@@ -116,6 +122,13 @@ export default async function DashboardPage({
               today={data.today}
             />
           </Section>
+        </div>
+
+        <div className="order-7 lg:col-span-3">
+          <DailyTeamUpdate
+            updates={dailyUpdates ?? []}
+            currentProfileId={user.id}
+          />
         </div>
       </div>
     </>

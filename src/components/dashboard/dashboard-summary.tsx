@@ -1,15 +1,16 @@
 import Link from "next/link"
-import { Building2, CheckSquare, CircleDollarSign, FolderKanban } from "lucide-react"
-import { Card } from "@/components/ui/card"
+import {
+  Building2,
+  CheckSquare,
+  CircleDollarSign,
+  FolderKanban,
+} from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { formatMoney } from "@/lib/format"
+import { ENTER_UP, stagger } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 import type { DashboardSummary as Summary } from "@/lib/dashboard/queries"
-import { formatMoney } from "@/lib/format"
 
-/**
- * Cuatro indicadores operativos en una sola tarjeta dividida, en vez de cuatro
- * tarjetas sueltas del mismo peso. Nada de leads, pipeline ni conversión: eso
- * vive en Pipeline y Métricas.
- */
 export function DashboardSummary({
   summary,
   scopeSuffix,
@@ -21,86 +22,94 @@ export function DashboardSummary({
     {
       key: "proyectos",
       label: "Proyectos activos",
-      value: summary.activeProjects,
+      value: String(summary.activeProjects),
+      caption: "En ejecución",
       icon: FolderKanban,
       href: "/proyectos",
+      tone: "primary",
     },
     {
       key: "clientes",
       label: "Clientes activos",
-      value: summary.activeClients,
+      value: String(summary.activeClients),
+      caption: "Con operación abierta",
       icon: Building2,
       href: "#clientes",
+      tone: "default",
     },
     {
       key: "hoy",
       label: "Tareas para hoy",
-      value: summary.tasksToday,
+      value: String(summary.tasksToday),
+      caption: summary.needsAttention
+        ? `${summary.needsAttention} requieren atención`
+        : "Jornada despejada",
       icon: CheckSquare,
       href: "#tareas",
+      tone: summary.needsAttention ? "warning" : "default",
     },
     {
       key: "cobros",
       label: "Cobros pendientes",
-      value: (
-        <span className="flex flex-col gap-0.5 text-sm leading-tight">
-          <span>{formatMoney(summary.pendingReceivables.ARS, "ARS")}</span>
-          <span>{formatMoney(summary.pendingReceivables.USD, "USD")}</span>
-        </span>
-      ),
+      value: formatMoney(summary.pendingReceivables.ARS, "ARS"),
+      secondaryValue: formatMoney(summary.pendingReceivables.USD, "USD"),
+      caption: "Monedas separadas",
       icon: CircleDollarSign,
       href: "/finanzas",
+      tone: "default",
     },
-  ]
+  ] as const
 
   return (
-    <Card className="gap-0 overflow-hidden py-0">
-      <div className="grid grid-cols-2 sm:grid-cols-4">
-        {stats.map((stat, index) => {
-          const content = (
-            <>
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <stat.icon className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="text-xs">{stat.label}</span>
+    <section className="-mt-12 grid gap-3 px-4 sm:grid-cols-2 sm:px-8 lg:grid-cols-4">
+      {stats.map((stat, index) => (
+        <Link
+          key={stat.key}
+          href={stat.href}
+          className="group relative z-20 rounded-xl outline-none"
+        >
+          <Card
+            className={cn(
+              ENTER_UP,
+              "min-h-36 gap-0 border-0 bg-card py-4 shadow-lg shadow-foreground/[0.07] ring-1 transition-all group-hover:-translate-y-0.5 group-hover:shadow-xl group-focus-visible:ring-3 group-focus-visible:ring-ring/50 motion-reduce:group-hover:translate-y-0",
+              stat.tone === "primary"
+                ? "ring-primary/35"
+                : stat.tone === "warning"
+                  ? "ring-warning/55"
+                  : "ring-foreground/10"
+            )}
+            style={stagger(index, 55)}
+          >
+            <CardContent className="flex h-full flex-col px-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="label-mono text-muted-foreground">{stat.label}</p>
+                <span
+                  className={cn(
+                    "flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground",
+                    stat.tone === "primary" && "bg-primary/12 text-primary",
+                    stat.tone === "warning" &&
+                      "bg-warning/25 text-warning-foreground"
+                  )}
+                >
+                  <stat.icon className="size-4" aria-hidden="true" />
+                </span>
               </div>
-              <p
-                className={cn(
-                  "mt-1.5 font-mono text-2xl leading-none font-semibold tabular-nums",
-                )}
-              >
+              <p className="mt-3 font-mono text-[clamp(1.45rem,3vw,2rem)] leading-none font-semibold tracking-tight tabular-nums">
                 {stat.value}
               </p>
-            </>
-          )
-
-          const className = cn(
-            "p-4 transition-colors",
-            // Separadores sin encerrar cada celda en su propio borde.
-            index % 2 === 1 && "border-l",
-            index >= 2 && "border-t sm:border-t-0",
-            index >= 1 && "sm:border-l",
-            stat.href && "hover:bg-muted/50"
-          )
-
-          return stat.href ? (
-            <Link
-              key={stat.key}
-              href={stat.href}
-              className={cn(
-                className,
-                "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+              {"secondaryValue" in stat && (
+                <p className="mt-1 font-mono text-sm font-medium text-muted-foreground tabular-nums">
+                  {stat.secondaryValue}
+                </p>
               )}
-            >
-              {content}
-            </Link>
-          ) : (
-            <div key={stat.key} className={className}>
-              {content}
-            </div>
-          )
-        })}
-      </div>
+              <p className="mt-auto pt-3 text-xs text-muted-foreground">
+                {stat.caption}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      ))}
       <p className="sr-only">Indicadores {scopeSuffix}.</p>
-    </Card>
+    </section>
   )
 }

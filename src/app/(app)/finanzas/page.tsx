@@ -24,14 +24,17 @@ import type {
 
 export default async function FinanzasPage() {
   const supabase = await createClient()
+  const { data: authData } = await supabase.auth.getUser()
   const [recordsRes, clientsRes, projectsRes] = await Promise.all([
     supabase
       .from("financial_records")
       .select(
         `id, record_type, concept, currency, total_amount, paid_amount, due_date,
-         paid_at, canceled_at, client_id, project_id, created_at,
+         paid_at, canceled_at, cancel_reason, client_id, project_id, created_at, notes,
          client:clients(id, organization:organizations(name)),
-         project:projects(id, name)`
+         project:projects(id, name),
+         payments:financial_payments(id, amount, paid_on, note, created_at, actor:profiles!financial_payments_created_by_fkey(full_name)),
+         history:financial_record_history(id, change_type, changed_at, note, actor:profiles!financial_record_history_changed_by_fkey(full_name))`
       )
       .order("created_at", { ascending: false }),
     supabase
@@ -64,6 +67,28 @@ export default async function FinanzasPage() {
     projectId: record.project_id,
     projectName: record.project?.name ?? null,
     createdAt: record.created_at,
+    notes: record.notes,
+    canceledAt: record.canceled_at,
+    cancelReason: record.cancel_reason,
+    payments: [...(record.payments ?? [])]
+      .sort((a, b) => b.paid_on.localeCompare(a.paid_on))
+      .map((payment) => ({
+        id: payment.id,
+        amount: Number(payment.amount),
+        paidOn: payment.paid_on,
+        note: payment.note,
+        createdAt: payment.created_at,
+        actor: payment.actor?.full_name ?? null,
+      })),
+    history: [...(record.history ?? [])]
+      .sort((a, b) => b.changed_at.localeCompare(a.changed_at))
+      .map((item) => ({
+        id: item.id,
+        changeType: item.change_type,
+        changedAt: item.changed_at,
+        note: item.note,
+        actor: item.actor?.full_name ?? null,
+      })),
   }))
 
   const clients: FinanceOption[] = (clientsRes.data ?? []).map((client) => ({
@@ -71,6 +96,10 @@ export default async function FinanzasPage() {
     name: client.organization?.name ?? "Cliente sin organización",
   }))
   const projects: FinanceOption[] = projectsRes.data ?? []
+  const { data: currentProfile } = authData.user
+    ? await supabase.from("profiles").select("role").eq("id", authData.user.id).maybeSingle()
+    : { data: null }
+  const isAdmin = currentProfile?.role === "admin"
 
   return (
     <>
@@ -78,7 +107,7 @@ export default async function FinanzasPage() {
         title="Finanzas"
         description="Control operativo de cobros y gastos, separado por moneda"
       >
-        <NewFinancialRecordDialog clients={clients} projects={projects} />
+        {isAdmin && <NewFinancialRecordDialog clients={clients} projects={projects} />}
       </PageHeader>
 
       <div className="space-y-6 p-4 sm:p-6">
@@ -107,7 +136,7 @@ export default async function FinanzasPage() {
                   {records.length}
                 </span>
               </div>
-              <FinanceRecords records={records} />
+              <FinanceRecords records={records} clients={clients} projects={projects} isAdmin={isAdmin} />
             </section>
           </>
         )}

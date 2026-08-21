@@ -4,13 +4,19 @@ import { useMemo, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Ban } from "lucide-react"
-import { toggleTask } from "@/app/(app)/proyectos/actions"
+import { Ban, MessageSquare, Pencil } from "lucide-react"
+import { commentOnTask, toggleTask, updateTask } from "@/app/(app)/proyectos/actions"
 import { completeActivity } from "@/app/(app)/quick-actions"
 import { PRIORITY_LABELS } from "@/lib/constants"
 import { formatDateShort } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import type { DashboardTask } from "@/lib/dashboard/queries"
 import type { TaskBucket } from "@/lib/dashboard/utils"
 
@@ -48,9 +54,11 @@ function matchesFilter(task: DashboardTask, filter: Filter): boolean {
 
 export function DashboardTasks({
   tasks,
+  profiles,
   limit = 8,
 }: {
   tasks: DashboardTask[]
+  profiles: { id: string; full_name: string }[]
   limit?: number
 }) {
   const [filter, setFilter] = useState<Filter>("todas")
@@ -110,7 +118,7 @@ export function DashboardTasks({
       ) : (
         <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
           {visible.map((task) => (
-            <TaskRow key={task.id} task={task} />
+            <TaskRow key={task.id} task={task} profiles={profiles} />
           ))}
         </ul>
       )}
@@ -130,10 +138,11 @@ export function DashboardTasks({
   )
 }
 
-function TaskRow({ task }: { task: DashboardTask }) {
+function TaskRow({ task, profiles }: { task: DashboardTask; profiles: { id: string; full_name: string }[] }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const blocked = task.status === "bloqueada"
+  const [editing, setEditing] = useState(false)
 
   function complete() {
     startTransition(async () => {
@@ -201,7 +210,26 @@ function TaskRow({ task }: { task: DashboardTask }) {
             {PRIORITY_LABELS[task.priority]}
           </p>
         )}
+        {task.source === "project_task" && <Button variant="ghost" size="icon-xs" className="mt-1" aria-label={`Editar ${task.title}`} onClick={() => setEditing(true)}><Pencil className="size-3.5" /></Button>}
       </div>
+      {editing && <TaskEditDialog task={task} profiles={profiles} onClose={() => setEditing(false)} />}
     </li>
   )
+}
+
+function TaskEditDialog({ task, profiles, onClose }: { task: DashboardTask; profiles: { id: string; full_name: string }[]; onClose: () => void }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  function run(action: Promise<{ error: string } | { ok: true; message?: string }>, success: string, close = false) {
+    setError(null)
+    startTransition(async () => {
+      const result = await action
+      if ("error" in result) { setError(result.error); return }
+      toast.success(result.message ?? success)
+      if (close) onClose()
+      router.refresh()
+    })
+  }
+  return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Editar tarea</DialogTitle><DialogDescription>Reasigná, priorizá o cambiá la fecha sin salir de Hoy.</DialogDescription></DialogHeader><form onSubmit={(event) => { event.preventDefault(); run(updateTask(null, new FormData(event.currentTarget)), "Tarea actualizada", true) }} className="grid gap-3 sm:grid-cols-2"><input type="hidden" name="task_id" value={task.id} /><input type="hidden" name="project_id" value={task.projectId ?? ""} /><input type="hidden" name="position" value={task.position} /><div className="space-y-1.5 sm:col-span-2"><Label>Título</Label><Input name="title" required defaultValue={task.title} /></div><div className="space-y-1.5 sm:col-span-2"><Label>Descripción</Label><Textarea name="description" defaultValue={task.description ?? ""} rows={2} /></div><div className="space-y-1.5"><Label>Responsable</Label><Select name="owner_id" defaultValue={task.ownerId ?? undefined} items={Object.fromEntries(profiles.map((profile) => [profile.id, profile.full_name]))}><SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger><SelectContent>{profiles.map((profile) => <SelectItem key={profile.id} value={profile.id}>{profile.full_name}</SelectItem>)}</SelectContent></Select></div><div className="space-y-1.5"><Label>Vence</Label><Input name="due_date" type="date" defaultValue={task.dueDate ?? ""} /></div><div className="space-y-1.5"><Label>Prioridad</Label><Select name="priority" defaultValue={task.priority}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(PRIORITY_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div><div className="space-y-1.5"><Label>Estado</Label><Select name="status" defaultValue={task.status}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pendiente">Pendiente</SelectItem><SelectItem value="en_curso">En curso</SelectItem><SelectItem value="bloqueada">Bloqueada</SelectItem><SelectItem value="completada">Completada</SelectItem></SelectContent></Select></div>{error && <p className="text-sm text-destructive sm:col-span-2">{error}</p>}<DialogFooter className="sm:col-span-2"><Button type="submit" disabled={pending}>{pending ? "Guardando…" : "Guardar cambios"}</Button></DialogFooter></form><form onSubmit={(event) => { event.preventDefault(); run(commentOnTask(null, new FormData(event.currentTarget)), "Comentario agregado") }} className="border-t pt-4"><input type="hidden" name="task_id" value={task.id} /><input type="hidden" name="project_id" value={task.projectId ?? ""} /><input type="hidden" name="task_title" value={task.title} /><Label>Comentario</Label><div className="mt-2 flex gap-2"><Input name="body" required placeholder="Actualización o @mención" /><Button type="submit" variant="outline" disabled={pending}><MessageSquare className="size-4" /></Button></div></form></DialogContent></Dialog>
 }

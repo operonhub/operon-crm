@@ -174,6 +174,10 @@ export type DashboardAlert = {
   /** Dónde pasa. Ej: "Súper Todo · Panadería Don Carlos". */
   context: string
   href: string
+  company?: string | null
+  action?: string | null
+  owner?: string | null
+  dueDate?: string | null
 }
 
 const SEVERITY_RANK: Record<AlertSeverity, number> = {

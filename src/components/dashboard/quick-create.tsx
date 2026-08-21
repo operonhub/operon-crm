@@ -8,16 +8,18 @@ import {
   CalendarPlus,
   FolderPlus,
   ListChecks,
+  MessageSquare,
   Plus,
-  UserPlus,
+  Target,
   WalletCards,
 } from "lucide-react"
 import { addTask } from "@/app/(app)/proyectos/actions"
 import {
   createActivity,
-  createClientRecord,
   createProject,
 } from "@/app/(app)/quick-actions"
+import { createClient } from "@/app/(app)/clientes/actions"
+import { createTeamConversation } from "@/app/(app)/bandeja/actions"
 import type { ActionResult } from "@/lib/action-result"
 import {
   ACTIVITY_TYPE_LABELS,
@@ -33,8 +35,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { NewLeadDialog } from "@/components/leads/new-lead-dialog"
 import { NewFinancialRecordDialog } from "@/components/finance/new-record-dialog"
+import { NewOpportunityDialog } from "@/components/opportunities/new-opportunity-dialog"
 import {
   Dialog,
   DialogContent,
@@ -57,21 +59,29 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-type QuickAction = (prev: unknown, fd: FormData) => Promise<ActionResult>
+type QuickAction = (prev: unknown, fd: FormData) => Promise<ActionResult<unknown>>
 
-type DialogKind = "tarea" | "proyecto" | "cliente" | "actividad" | "lead" | "finanzas"
+type DialogKind =
+  | "oportunidad"
+  | "cliente"
+  | "proyecto"
+  | "tarea"
+  | "actividad"
+  | "finanzas"
+  | "mensaje"
 
 export function QuickCreateMenu({ options }: { options: QuickCreateOptions }) {
   const [dialog, setDialog] = useState<DialogKind | null>(null)
   const close = () => setDialog(null)
 
   const items: { kind: DialogKind; label: string; icon: React.ElementType }[] = [
-    { kind: "tarea", label: "Nueva tarea", icon: ListChecks },
-    { kind: "proyecto", label: "Nuevo proyecto", icon: FolderPlus },
+    { kind: "oportunidad", label: "Nueva oportunidad", icon: Target },
     { kind: "cliente", label: "Nuevo cliente", icon: Building2 },
+    { kind: "proyecto", label: "Nuevo proyecto", icon: FolderPlus },
+    { kind: "tarea", label: "Nueva tarea", icon: ListChecks },
     { kind: "actividad", label: "Nueva actividad", icon: CalendarPlus },
     { kind: "finanzas", label: "Nuevo registro financiero", icon: WalletCards },
-    { kind: "lead", label: "Nuevo lead", icon: UserPlus },
+    { kind: "mensaje", label: "Nuevo mensaje interno", icon: MessageSquare },
   ]
 
   return (
@@ -111,10 +121,11 @@ export function QuickCreateMenu({ options }: { options: QuickCreateOptions }) {
         onClose={close}
         options={options}
       />
-      <NewLeadDialog
+      <NewOpportunityDialog
         profiles={options.profiles}
+        organizations={options.organizations}
         showTrigger={false}
-        open={dialog === "lead"}
+        open={dialog === "oportunidad"}
         onOpenChange={(next) => !next && close()}
       />
       <NewFinancialRecordDialog
@@ -123,6 +134,11 @@ export function QuickCreateMenu({ options }: { options: QuickCreateOptions }) {
         showTrigger={false}
         open={dialog === "finanzas"}
         onOpenChange={(next) => !next && close()}
+      />
+      <MessageDialog
+        open={dialog === "mensaje"}
+        onClose={close}
+        options={options}
       />
     </>
   )
@@ -320,7 +336,7 @@ function TaskDialog({
   )
 }
 
-function ProjectDialog({
+export function ProjectDialog({
   open,
   onClose,
   options,
@@ -436,27 +452,22 @@ function ClientDialog({
       open={open}
       onClose={onClose}
       title="Nuevo cliente"
-      description={
-        hasOrgs
-          ? "Marca una empresa o prospecto existente como cliente activo."
-          : "Primero cargá una empresa o prospecto desde Leads."
-      }
-      action={createClientRecord}
+      description="Elegí una empresa existente o creá una nueva sin fusionar duplicados automáticamente."
+      action={createClient}
       successMessage="Cliente creado"
       submitLabel="Crear cliente"
     >
-      <Field label="Empresa o prospecto">
+      {hasOrgs && (
+      <Field label="Empresa existente">
         <Select
           name="organization_id"
-          required
-          disabled={!hasOrgs}
           items={itemsOf(
             options.organizations.map((o) => ({ id: o.id, label: o.name }))
           )}
         >
           <SelectTrigger>
             <SelectValue
-              placeholder={hasOrgs ? "Elegí una" : "Sin empresas cargadas"}
+              placeholder="Sin elegir"
             />
           </SelectTrigger>
           <SelectContent>
@@ -468,9 +479,58 @@ function ClientDialog({
           </SelectContent>
         </Select>
       </Field>
+      )}
+      <Field label="O crear una empresa" htmlFor="client-organization-name">
+        <Input id="client-organization-name" name="organization_name" placeholder="Nombre de la empresa" />
+      </Field>
+      <Field label="Sitio web" htmlFor="client-website">
+        <Input id="client-website" name="website" type="url" placeholder="https://" />
+      </Field>
       <OwnerField profiles={options.profiles} />
       <Field label="Notas" htmlFor="client-notes">
         <Textarea id="client-notes" name="notes" rows={2} />
+      </Field>
+    </QuickDialog>
+  )
+}
+
+function MessageDialog({
+  open,
+  onClose,
+  options,
+}: {
+  open: boolean
+  onClose: () => void
+  options: QuickCreateOptions
+}) {
+  return (
+    <QuickDialog
+      open={open}
+      onClose={onClose}
+      title="Nuevo mensaje interno"
+      description="Abrí una conversación de Equipo. Podés mencionar @Santiago, @Tomi o @equipo."
+      action={createTeamConversation}
+      successMessage="Mensaje enviado"
+      submitLabel="Abrir conversación"
+    >
+      <Field label="Asunto" htmlFor="message-title">
+        <Input id="message-title" name="title" required />
+      </Field>
+      <Field label="Mensaje" htmlFor="message-body">
+        <Textarea id="message-body" name="body" rows={4} required />
+      </Field>
+      <Field label="Le toca a">
+        <Select
+          name="assigned_to"
+          items={itemsOf(options.profiles.map((profile) => ({ id: profile.id, label: profile.full_name })))}
+        >
+          <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+          <SelectContent>
+            {options.profiles.map((profile) => (
+              <SelectItem key={profile.id} value={profile.id}>{profile.full_name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </Field>
     </QuickDialog>
   )

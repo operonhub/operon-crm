@@ -88,3 +88,28 @@ export function summarizeFinances(
 export function hasMoney(totals: MoneyByCurrency): boolean {
   return totals.ARS !== 0 || totals.USD !== 0
 }
+
+export type FinancialValidation = { ok: true } | { ok: false; error: string }
+
+export function validatePayment(
+  record: Pick<FinancialRecordLike, "total_amount" | "paid_amount" | "canceled_at">,
+  amount: number
+): FinancialValidation {
+  if (record.canceled_at) {
+    return { ok: false, error: "El movimiento está cancelado." }
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, error: "Ingresá un importe mayor que cero." }
+  }
+  if (amount > financialBalance(record)) {
+    return { ok: false, error: "El pago supera el saldo pendiente." }
+  }
+  return { ok: true }
+}
+
+export function validateCancellation(reason: string): FinancialValidation {
+  if (!reason.trim()) {
+    return { ok: false, error: "Indicá el motivo de la cancelación." }
+  }
+  return { ok: true }
+}

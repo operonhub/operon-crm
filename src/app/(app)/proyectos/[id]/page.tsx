@@ -8,6 +8,7 @@ import { ProjectStatusControl } from "@/components/projects/status-control"
 import { LinksDialog, type ProjectLinks } from "@/components/projects/links-dialog"
 import { TaskList, type Task } from "@/components/projects/task-list"
 import { ProjectOperationalDialog } from "@/components/projects/operational-dialog"
+import { ProjectOperationsPanel } from "@/components/projects/project-operations-panel"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -48,6 +49,7 @@ export default async function ProjectDetailPage({
     .from("projects")
     .select(
       `id, name, type, area, engagement_kind, operational_type, status, scope, conversion_goal, kpi, start_date, due_date, links,
+       client_id, owner_id, archived_at, archive_reason,
        client:clients(id, organization:organizations(id, name)),
        owner:profiles!projects_owner_id_fkey(full_name),
        opportunity:opportunities(id, title)`
@@ -57,11 +59,12 @@ export default async function ProjectDetailPage({
 
   if (!project) notFound()
 
-  const [tasksRes, automationsRes, activitiesRes, financeRes, clientsRes] = await Promise.all([
+  const [tasksRes, automationsRes, activitiesRes, financeRes, clientsRes, profilesRes] = await Promise.all([
     supabase
       .from("project_tasks")
-      .select("id, title, status, priority, due_date, owner:profiles!project_tasks_owner_id_fkey(full_name)")
+      .select("id, title, description, status, priority, due_date, owner_id, position, owner:profiles!project_tasks_owner_id_fkey(full_name)")
       .eq("project_id", id)
+      .is("archived_at", null)
       .order("position"),
     supabase
       .from("automations")
@@ -81,6 +84,10 @@ export default async function ProjectDetailPage({
       .from("clients")
       .select("id, organization:organizations(name)")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .order("full_name"),
   ])
 
   const tasks = tasksRes.data ?? []
@@ -100,6 +107,17 @@ export default async function ProjectDetailPage({
 
   const links = (project.links ?? {}) as ProjectLinks
   const linkEntries = Object.entries(links).filter(([, v]) => v)
+  const { data: authData } = await supabase.auth.getUser()
+  const [milestonesRes, blockersRes, collaboratorsRes, agentsRes, projectAgentsRes, currentProfileRes] = await Promise.all([
+    supabase.from("project_milestones").select("id, title, description, due_date, status").eq("project_id", id).order("due_date"),
+    supabase.from("project_blockers").select("id, title, detail, status, owner:profiles!project_blockers_owner_id_fkey(full_name)").eq("project_id", id).order("created_at", { ascending: false }),
+    supabase.from("project_collaborators").select("profile_id").eq("project_id", id),
+    supabase.from("agents").select("id, name").neq("status", "archived").order("name"),
+    supabase.from("project_agents").select("agent_id").eq("project_id", id),
+    authData.user
+      ? supabase.from("profiles").select("role").eq("id", authData.user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
   return (
     <>
@@ -242,6 +260,7 @@ export default async function ProjectDetailPage({
                 <TaskList
                   projectId={project.id}
                   tasks={(tasks ?? []) as Task[]}
+                  profiles={profilesRes.data ?? []}
                 />
               </CardContent>
             </Card>
@@ -277,6 +296,24 @@ export default async function ProjectDetailPage({
             </Card>
           </div>
         </div>
+
+        <section className="space-y-3 pt-2" aria-labelledby="project-operations-title">
+          <div>
+            <p className="label-mono text-primary">Operación</p>
+            <h2 id="project-operations-title" className="mt-1 text-xl font-semibold">Equipo, hitos y bloqueos</h2>
+          </div>
+          <ProjectOperationsPanel
+            project={project}
+            clients={clients}
+            profiles={profilesRes.data ?? []}
+            collaboratorIds={(collaboratorsRes.data ?? []).map((item) => item.profile_id)}
+            agents={agentsRes.data ?? []}
+            linkedAgentIds={(projectAgentsRes.data ?? []).map((item) => item.agent_id)}
+            milestones={milestonesRes.data ?? []}
+            blockers={blockersRes.data ?? []}
+            isAdmin={currentProfileRes.data?.role === "admin"}
+          />
+        </section>
       </div>
     </>
   )

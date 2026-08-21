@@ -3,6 +3,8 @@ import {
   financialBalance,
   financialStatus,
   summarizeFinances,
+  validateCancellation,
+  validatePayment,
   type FinancialRecordLike,
 } from "./finance"
 
@@ -38,6 +40,22 @@ describe("financialStatus", () => {
 
   it("no permite saldo negativo aunque el input externo sea inválido", () => {
     expect(financialBalance(record({ paid_amount: 1200 }))).toBe(0)
+  })
+})
+
+describe("mutaciones financieras", () => {
+  it("acepta pagos parciales y rechaza importes que exceden el saldo", () => {
+    expect(validatePayment(record({ paid_amount: 200 }), 300)).toEqual({ ok: true })
+    expect(validatePayment(record({ paid_amount: 900 }), 101)).toEqual({
+      ok: false,
+      error: "El pago supera el saldo pendiente.",
+    })
+  })
+
+  it("rechaza pagos sobre movimientos cancelados y cancelaciones sin motivo", () => {
+    expect(validatePayment(record({ canceled_at: TODAY }), 100).ok).toBe(false)
+    expect(validateCancellation("  ").ok).toBe(false)
+    expect(validateCancellation("Duplicado confirmado")).toEqual({ ok: true })
   })
 })
 describe("summarizeFinances", () => {

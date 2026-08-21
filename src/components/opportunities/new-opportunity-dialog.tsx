@@ -29,11 +29,26 @@ import {
 } from "@/components/ui/select"
 
 type Profile = { id: string; full_name: string }
+type Organization = { id: string; name: string }
 
 const initialState: OpportunityFormState = { status: "idle" }
 
-export function NewOpportunityDialog({ profiles }: { profiles: Profile[] }) {
-  const [open, setOpen] = useState(false)
+export function NewOpportunityDialog({
+  profiles,
+  organizations = [],
+  showTrigger = true,
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  profiles: Profile[]
+  organizations?: Organization[]
+  showTrigger?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen ?? internalOpen
+  const setOpen = onOpenChange ?? setInternalOpen
   const [state, formAction, pending] = useActionState(
     createOpportunity,
     initialState
@@ -41,13 +56,15 @@ export function NewOpportunityDialog({ profiles }: { profiles: Profile[] }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" />}>
-        <Plus className="mr-1 h-4 w-4" />
-        Nuevo proyecto
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger render={<Button size="sm" />}>
+          <Plus className="mr-1 h-4 w-4" />
+          Nueva oportunidad
+        </DialogTrigger>
+      )}
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nuevo proyecto en Pipeline</DialogTitle>
+          <DialogTitle>Nueva oportunidad</DialogTitle>
           <DialogDescription>
             Creá una oportunidad comercial y agregala a la etapa Nuevo.
           </DialogDescription>
@@ -55,17 +72,28 @@ export function NewOpportunityDialog({ profiles }: { profiles: Profile[] }) {
 
         <form action={formAction} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="opportunity-title">Nombre del proyecto *</Label>
+            <Label htmlFor="opportunity-title">Nombre de la oportunidad *</Label>
             <Input id="opportunity-title" name="title" required autoFocus />
           </div>
 
+          {organizations.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Empresa existente</Label>
+              <Select name="organization_id">
+                <SelectTrigger><SelectValue placeholder="Sin elegir" /></SelectTrigger>
+                <SelectContent>
+                  {organizations.map((organization) => (
+                    <SelectItem key={organization.id} value={organization.id}>
+                      {organization.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1.5">
-            <Label htmlFor="organization-name">Empresa</Label>
-            <Input
-              id="organization-name"
-              name="organization_name"
-              placeholder="Nombre del cliente"
-            />
+            <Label htmlFor="organization-name">O crear una empresa</Label>
+            <Input id="organization-name" name="organization_name" placeholder="Nombre de la empresa" />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -85,7 +113,7 @@ export function NewOpportunityDialog({ profiles }: { profiles: Profile[] }) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="estimated-value">Valor estimado (USD)</Label>
+              <Label htmlFor="estimated-value">Valor estimado</Label>
               <Input
                 id="estimated-value"
                 name="estimated_value"
@@ -94,6 +122,16 @@ export function NewOpportunityDialog({ profiles }: { profiles: Profile[] }) {
                 step="0.01"
                 inputMode="decimal"
               />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Moneda</Label>
+              <Select name="currency" defaultValue="USD" items={{ USD: "USD", ARS: "ARS" }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">USD</SelectItem>
+                  <SelectItem value="ARS">ARS</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -143,7 +181,7 @@ export function NewOpportunityDialog({ profiles }: { profiles: Profile[] }) {
 
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? "Creando…" : "Crear proyecto"}
+              {pending ? "Creando…" : "Crear oportunidad"}
             </Button>
           </DialogFooter>
         </form>

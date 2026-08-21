@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Link2 } from "lucide-react"
 import { updateProjectLinks } from "@/app/(app)/proyectos/actions"
+import type { ActionResult } from "@/lib/action-result"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,17 +49,15 @@ export function LinksDialog({
   links: ProjectLinks
 }) {
   const [open, setOpen] = useState(false)
-  const [state, formAction, pending] = useActionState(
+  const [state, formAction, pending] = useActionState<ActionResult | null, FormData>(
     updateProjectLinks,
-    null as { ok?: boolean; error?: string } | null
+    null
   )
   const router = useRouter()
 
   useEffect(() => {
-    if (state?.ok) {
-      // Reacción a la resolución de la Server Action (evento externo).
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setOpen(false)
+    if (state && "ok" in state) {
+      queueMicrotask(() => setOpen(false))
       router.refresh()
     }
   }, [state, router])
@@ -87,7 +86,7 @@ export function LinksDialog({
               />
             </div>
           ))}
-          {state?.error && (
+          {state && "error" in state && (
             <p className="text-sm text-destructive">{state.error}</p>
           )}
           <DialogFooter>

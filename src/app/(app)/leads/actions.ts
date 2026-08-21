@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { requireMember } from "@/lib/auth"
+import { writeAudit } from "@/lib/audit"
 import {
   normalizeDomain,
   normalizeEmail,
@@ -32,7 +33,7 @@ export async function createLead(
   _prev: LeadFormState,
   fd: FormData
 ): Promise<LeadFormState> {
-  const supabase = await createClient()
+  const { supabase, profile } = await requireMember()
 
   const orgName = str(fd, "org_name")
   const orgDomain = normalizeDomain(str(fd, "org_domain") || str(fd, "org_website"))
@@ -164,7 +165,7 @@ export async function createLead(
   }
 
   // ---------- Crear lead ----------
-  const { error: leadError } = await supabase.from("leads").insert({
+  const { data: createdLead, error: leadError } = await supabase.from("leads").insert({
     organization_id: organizationId,
     contact_id: contactId,
     source,
@@ -172,8 +173,9 @@ export async function createLead(
     owner_id: ownerId || null,
     segment: segment || null,
     notes: notes || null,
-  })
+  }).select("id").single()
   if (leadError) return { status: "error", message: leadError.message }
+  if (createdLead) await writeAudit(supabase, profile.id, "lead", createdLead.id, "created")
 
   revalidatePath("/leads")
   redirect("/leads")
@@ -184,15 +186,16 @@ export async function updateLeadStatus(
   leadId: string,
   status: Enums<"lead_status">
 ) {
-  const supabase = await createClient()
+  const { supabase, profile } = await requireMember()
   await supabase.from("leads").update({ status }).eq("id", leadId)
+  await writeAudit(supabase, profile.id, "lead", leadId, `status_${status}`)
   revalidatePath("/leads")
   revalidatePath(`/leads/${leadId}`)
 }
 
 /** Convierte un lead en oportunidad (crea oportunidad + marca lead convertido). */
 export async function convertLeadToOpportunity(_prev: unknown, fd: FormData) {
-  const supabase = await createClient()
+  const { supabase, profile } = await requireMember()
 
   const leadId = str(fd, "lead_id")
   const title = str(fd, "title")
@@ -234,6 +237,7 @@ export async function convertLeadToOpportunity(_prev: unknown, fd: FormData) {
   if (error) return { error: error.message }
 
   await supabase.from("leads").update({ status: "convertido" }).eq("id", leadId)
+  await writeAudit(supabase, profile.id, "lead", leadId, "converted", { opportunity_id: opp.id })
 
   revalidatePath("/leads")
   revalidatePath("/oportunidades")
@@ -276,7 +280,7 @@ export async function importLeads(
   _prev: ImportState,
   fd: FormData
 ): Promise<ImportState> {
-  const supabase = await createClient()
+  const { supabase, profile } = await requireMember()
   const csv = String(fd.get("csv") ?? "").trim()
   const ownerId = str(fd, "owner_id")
 
@@ -400,5 +404,6 @@ export async function importLeads(
   }
 
   revalidatePath("/leads")
+  await writeAudit(supabase, profile.id, "lead_import", profile.id, "completed", { created, skipped, errors: errors.length })
   return { status: "done", created, skipped, errors }
 }

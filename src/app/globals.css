@@ -29,6 +29,8 @@
   --color-destructive: var(--destructive);
   --color-success-foreground: var(--success-foreground);
   --color-success: var(--success);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -51,6 +53,7 @@
 }
 
 :root {
+  color-scheme: light;
   /* Operon — paleta de marca (claro) */
   --background: oklch(0.982 0.007 88.6); /* papel */
   --foreground: oklch(0.186 0.008 95.5); /* tinta */
@@ -69,6 +72,8 @@
   --destructive: oklch(0.555 0.171 16.3); /* rose armonizado */
   --success: oklch(0.559 0.133 153.6); /* ok */
   --success-foreground: oklch(0.982 0.007 88.6); /* papel */
+  --warning: oklch(0.850 0.146 90.5); /* sol */
+  --warning-foreground: oklch(0.186 0.008 95.5); /* tinta */
   --border: oklch(0.864 0.026 89.2); /* line */
   --input: oklch(0.864 0.026 89.2); /* line */
   --ring: oklch(0.443 0.205 266.2); /* azul */
@@ -89,6 +94,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   /* Operon — paleta de marca (oscuro) */
   --background: oklch(0.186 0.008 95.5); /* tinta */
   --foreground: oklch(0.982 0.007 88.6); /* papel */
@@ -107,6 +113,8 @@
   --destructive: oklch(0.667 0.162 11.7); /* rose aclarado */
   --success: oklch(0.666 0.150 154.2); /* ok aclarado */
   --success-foreground: oklch(0.186 0.008 95.5); /* tinta */
+  --warning: oklch(0.850 0.146 90.5); /* sol */
+  --warning-foreground: oklch(0.186 0.008 95.5); /* tinta */
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.617 0.152 266.6); /* azul aclarado */
@@ -134,5 +142,22 @@
   }
   html {
     @apply font-sans;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-heading tracking-tight;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  label[for],
+  summary {
+    @apply cursor-pointer;
+  }
+}
+
+@layer utilities {
+  .label-mono {
+    @apply font-mono text-[10px] uppercase tracking-wider;
   }
 }

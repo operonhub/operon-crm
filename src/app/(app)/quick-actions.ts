@@ -1,7 +1,8 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { createClient } from "@/lib/supabase/server"
+import { requireMember } from "@/lib/auth"
+import { writeAudit } from "@/lib/audit"
 import {
   PROJECT_AREAS,
   PROJECT_TASK_TEMPLATES,
@@ -26,7 +27,7 @@ export async function createProject(
   _prev: unknown,
   fd: FormData
 ): Promise<ActionResult> {
-  const supabase = await createClient()
+  const { supabase, profile } = await requireMember()
 
   const name = str(fd, "name")
   const type = str(fd, "type") as Enums<"service_type">
@@ -85,6 +86,8 @@ export async function createProject(
     }
   }
 
+  await writeAudit(supabase, profile.id, "project", project.id, "created")
+
   revalidatePath("/")
   revalidatePath("/proyectos")
   if (clientId) revalidatePath(`/clientes/${clientId}`)
@@ -96,7 +99,7 @@ export async function createClientRecord(
   _prev: unknown,
   fd: FormData
 ): Promise<ActionResult> {
-  const supabase = await createClient()
+  const { supabase, profile } = await requireMember()
 
   const organizationId = str(fd, "organization_id")
   if (!organizationId) return { error: "Elegí una organización." }
@@ -115,13 +118,15 @@ export async function createClientRecord(
     return { error: "Esa organización ya figura como cliente." }
   }
 
-  const { error } = await supabase.from("clients").insert({
+  const { data: client, error } = await supabase.from("clients").insert({
     organization_id: organizationId,
     status: "activo",
     ...(ownerId ? { owner_id: ownerId } : {}),
     ...(notes ? { notes } : {}),
-  })
+  }).select("id").single()
   if (error) return { error: error.message }
+
+  await writeAudit(supabase, profile.id, "client", client?.id ?? null, "created")
 
   revalidatePath("/")
   revalidatePath("/clientes")
@@ -136,7 +141,7 @@ export async function createActivity(
   _prev: unknown,
   fd: FormData
 ): Promise<ActionResult> {
-  const supabase = await createClient()
+  const { supabase, profile } = await requireMember()
 
   const body = str(fd, "body")
   if (!body) return { error: "Escribí de qué se trata." }
@@ -147,15 +152,17 @@ export async function createActivity(
   const projectId = str(fd, "project_id")
   const ownerId = str(fd, "owner_id")
 
-  const { error } = await supabase.from("activities").insert({
+  const { data: activity, error } = await supabase.from("activities").insert({
     type,
     body,
     ...(dueDate ? { due_date: dueDate } : {}),
     ...(opportunityId ? { opportunity_id: opportunityId } : {}),
     ...(projectId ? { project_id: projectId } : {}),
     ...(ownerId ? { owner_id: ownerId } : {}),
-  })
+  }).select("id").single()
   if (error) return { error: error.message }
+
+  await writeAudit(supabase, profile.id, "activity", activity?.id ?? null, "created")
 
   revalidatePath("/")
   if (opportunityId) revalidatePath(`/oportunidades/${opportunityId}`)
@@ -166,12 +173,14 @@ export async function createActivity(
 export async function completeActivity(
   activityId: string
 ): Promise<ActionResult> {
-  const supabase = await createClient()
+  const { supabase, profile } = await requireMember()
   const { error } = await supabase
     .from("activities")
     .update({ completed: true, completed_at: new Date().toISOString() })
     .eq("id", activityId)
   if (error) return { error: error.message }
+
+  await writeAudit(supabase, profile.id, "activity", activityId, "completed")
 
   revalidatePath("/")
   revalidatePath("/oportunidades")

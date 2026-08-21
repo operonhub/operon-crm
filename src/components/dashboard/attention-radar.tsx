@@ -3,6 +3,7 @@ import { AlertTriangle, Check, ChevronRight, Clock, Hourglass } from "lucide-rea
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { AlertSeverity, DashboardAlert } from "@/lib/dashboard/utils"
+import { formatDate } from "@/lib/format"
 
 /**
  * El color acompaña, no comunica solo: cada nivel trae además su propio icono
@@ -52,7 +53,7 @@ export function AttentionRadar({ alerts }: { alerts: DashboardAlert[] }) {
             href={alert.href}
             role="listitem"
             className={cn(
-              "flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50",
+              "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50 md:grid-cols-[auto_minmax(10rem,1.2fr)_minmax(10rem,1fr)_minmax(8rem,.7fr)_6rem_auto]",
               "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
               index > 0 && "border-t"
             )}
@@ -61,7 +62,7 @@ export function AttentionRadar({ alerts }: { alerts: DashboardAlert[] }) {
               className={cn("h-4 w-4 shrink-0", className)}
               aria-hidden="true"
             />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0">
               <p className="truncate text-sm font-medium">
                 <span className="sr-only">{label}: </span>
                 {alert.title}
@@ -70,6 +71,26 @@ export function AttentionRadar({ alerts }: { alerts: DashboardAlert[] }) {
                 {alert.context}
               </p>
             </div>
+            <div className="col-start-2 min-w-0 md:col-start-auto">
+              <p className="label-mono text-muted-foreground md:hidden">Acción</p>
+              <p className="truncate text-xs md:text-sm">
+                {alert.action ?? alert.context}
+              </p>
+              {alert.company && (
+                <p className="truncate text-xs text-muted-foreground md:hidden">
+                  {alert.company}
+                </p>
+              )}
+            </div>
+            <div className="hidden min-w-0 md:block">
+              <p className="truncate text-xs text-muted-foreground">
+                {alert.company ?? "—"}
+              </p>
+              <p className="truncate text-xs">{alert.owner ?? "Sin asignar"}</p>
+            </div>
+            <time className="hidden font-mono text-xs text-muted-foreground tabular-nums md:block">
+              {formatDate(alert.dueDate)}
+            </time>
             <ChevronRight
               className="h-4 w-4 shrink-0 text-muted-foreground"
               aria-hidden="true"

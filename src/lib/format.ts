@@ -18,6 +18,12 @@ const DATE_SHORT_FMT = new Intl.DateTimeFormat("es-AR", {
   month: "short",
 })
 
+const DATE_NUMERIC_FMT = new Intl.DateTimeFormat("es-AR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+})
+
 /** en-CA con timeZone da directamente 'YYYY-MM-DD'. */
 const ISO_TZ_FMT = new Intl.DateTimeFormat("en-CA", {
   timeZone: TIMEZONE,
@@ -55,6 +61,12 @@ export function formatDate(value: string | null | undefined): string {
 export function formatDateShort(value: string | null | undefined): string {
   const date = parseDate(value)
   return date ? DATE_SHORT_FMT.format(date) : "—"
+}
+
+/** Fecha operativa compacta y sin ambigüedad: 20/08/2026. */
+export function formatDateNumeric(value: string | null | undefined): string {
+  const date = parseDate(value)
+  return date ? DATE_NUMERIC_FMT.format(date) : "—"
 }
 
 /** Fecha de hoy (YYYY-MM-DD) en horario de Argentina. */

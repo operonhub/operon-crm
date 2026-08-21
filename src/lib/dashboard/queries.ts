@@ -59,6 +59,7 @@ export type DashboardTask = {
   id: string
   source: "project_task" | "activity"
   title: string
+  description: string | null
   status: Enums<"task_status">
   priority: Enums<"priority_level">
   dueDate: string | null
@@ -66,6 +67,8 @@ export type DashboardTask = {
   projectName: string
   clientName: string | null
   ownerName: string | null
+  ownerId: string | null
+  position: number
   bucket: TaskBucket
   href: string | null
 }
@@ -133,7 +136,7 @@ export async function getDashboardData(
   let tasksQuery = supabase
     .from("project_tasks")
     .select(
-      `id, title, status, priority, due_date, position, project_id,
+      `id, title, description, status, priority, due_date, position, project_id, owner_id,
        project:projects(id, name, status,
          client:clients(organization:organizations(name))),
        owner:profiles!project_tasks_owner_id_fkey(full_name)`
@@ -167,7 +170,9 @@ export async function getDashboardData(
 
   let opportunitiesQuery = supabase
     .from("opportunities")
-    .select("id, title, next_action, next_action_date, organization:organizations(name)")
+    .select(
+      "id, title, next_action, next_action_date, organization:organizations(name), owner:profiles!opportunities_owner_id_fkey(full_name)"
+    )
     .in("stage", ACTIVE_STAGES)
   if (mine) opportunitiesQuery = opportunitiesQuery.eq("owner_id", userId)
 
@@ -244,6 +249,7 @@ export async function getDashboardData(
       id: t.id,
       source: "project_task" as const,
       title: t.title,
+      description: t.description,
       status: t.status,
       priority: t.priority,
       dueDate: toISODate(t.due_date),
@@ -251,6 +257,8 @@ export async function getDashboardData(
       projectName: t.project?.name ?? "—",
       clientName: t.project?.client?.organization?.name ?? null,
       ownerName: t.owner?.full_name ?? null,
+      ownerId: t.owner_id,
+      position: t.position,
       bucket: taskBucket(t, today),
       href: `/proyectos/${t.project_id}`,
     }))
@@ -268,6 +276,7 @@ export async function getDashboardData(
         id: activity.id,
         source: "activity" as const,
         title: activity.body?.trim() || "Tarea sin descripción",
+        description: null,
         status: "pendiente" as const,
         priority: "media" as const,
         dueDate: toISODate(activity.due_date),
@@ -278,6 +287,8 @@ export async function getDashboardData(
           activity.opportunity?.organization?.name ??
           null,
         ownerName: activity.owner?.full_name ?? null,
+        ownerId: activity.owner_id,
+        position: 0,
         bucket: taskBucket(
           { status: "pendiente", priority: "media", due_date: activity.due_date },
           today
@@ -409,33 +420,42 @@ export async function getDashboardData(
     if (a.type === "tarea") return false
     const due = toISODate(a.due_date)
     return due !== null && due < today
-  }).length
-  if (overdueActivities > 0) {
+  })
+  for (const activity of overdueActivities) {
     alerts.push({
-      id: "activities-overdue",
+      id: `activity-${activity.id}`,
       severity: "critico",
-      title:
-        overdueActivities === 1
-          ? "1 actividad comercial vencida"
-          : `${overdueActivities} actividades comerciales vencidas`,
-      context: "Pipeline",
-      href: "/oportunidades",
+      title: activity.opportunity?.title ?? activity.body?.trim() ?? "Actividad vencida",
+      context: "Actividad comercial vencida",
+      href: activity.opportunity
+        ? `/oportunidades/${activity.opportunity.id}`
+        : activity.project
+          ? `/proyectos/${activity.project.id}`
+          : "/oportunidades",
+      company:
+        activity.opportunity?.organization?.name ??
+        activity.project?.client?.organization?.name ??
+        null,
+      action: activity.body?.trim() ?? null,
+      owner: activity.owner?.full_name ?? null,
+      dueDate: toISODate(activity.due_date),
     })
   }
 
   const missingNextAction = (opportunitiesRes.data ?? []).filter(
     (opportunity) => !opportunity.next_action?.trim() || !opportunity.next_action_date
   )
-  if (missingNextAction.length > 0) {
+  for (const opportunity of missingNextAction) {
     alerts.push({
-      id: "opportunities-missing-next-action",
+      id: `opportunity-missing-${opportunity.id}`,
       severity: "critico",
-      title:
-        missingNextAction.length === 1
-          ? "1 oportunidad activa sin próxima acción"
-          : `${missingNextAction.length} oportunidades activas sin próxima acción`,
-      context: "Pipeline",
-      href: "/oportunidades",
+      title: opportunity.title,
+      context: "Oportunidad sin próxima acción",
+      href: `/oportunidades/${opportunity.id}`,
+      company: opportunity.organization?.name ?? null,
+      action: opportunity.next_action?.trim() || "Sin definir",
+      owner: opportunity.owner?.full_name ?? null,
+      dueDate: toISODate(opportunity.next_action_date),
     })
   }
 
@@ -443,15 +463,17 @@ export async function getDashboardData(
     (opportunity) =>
       opportunity.next_action_date !== null && opportunity.next_action_date < today
   )
-  if (staleOpportunities.length > 0) {
+  for (const opportunity of staleOpportunities) {
     alerts.push({
-      id: "opportunities-overdue",
+      id: `opportunity-overdue-${opportunity.id}`,
       severity: "aviso",
-      title: staleOpportunities.length === 1
-        ? "1 próxima acción comercial vencida"
-        : `${staleOpportunities.length} próximas acciones comerciales vencidas`,
-      context: "Pipeline",
-      href: "/oportunidades",
+      title: opportunity.title,
+      context: "Próxima acción vencida",
+      href: `/oportunidades/${opportunity.id}`,
+      company: opportunity.organization?.name ?? null,
+      action: opportunity.next_action,
+      owner: opportunity.owner?.full_name ?? null,
+      dueDate: toISODate(opportunity.next_action_date),
     })
   }
 
@@ -468,6 +490,9 @@ export async function getDashboardData(
       title: `Cobro vencido: ${record.concept}`,
       context: record.client?.organization?.name ?? record.project?.name ?? "Finanzas",
       href: "/finanzas",
+      company: record.client?.organization?.name ?? null,
+      action: `Cobrar ${record.concept}`,
+      dueDate: toISODate(record.due_date),
     })
   }
 

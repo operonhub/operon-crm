@@ -1,7 +1,8 @@
 import Link from "next/link"
 import { AlertTriangle, ArrowRight, CheckCircle2, Flag, ListChecks } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
-import { PageHeader } from "@/components/page-header"
+import { ProjectCreateButton } from "@/components/projects/project-create-button"
+import { getQuickCreateOptions } from "@/lib/dashboard/queries"
 import { ProjectStatusBadge } from "@/components/project-badges"
 import { Card } from "@/components/ui/card"
 import {
@@ -21,25 +22,33 @@ import { formatDateShort, todayISO } from "@/lib/format"
 
 const AREA_ACCENT: Record<ProjectArea, string> = {
   sites_ecommerce: "border-l-primary",
-  apps_saas: "border-l-violet-500",
-  automations_crm: "border-l-amber-500",
-  assets_brand: "border-l-success",
+  apps_saas: "border-l-primary/55",
+  automations_crm: "border-l-warning",
+  assets_brand: "border-l-foreground/25",
 }
 
-export default async function ProyectosPage() {
+export default async function ProyectosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string; owner?: string; archived?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("projects")
-    .select(
-      `id, name, area, engagement_kind, operational_type, status, due_date,
+  const [{ data, error }, quickOptions] = await Promise.all([
+    supabase
+      .from("projects")
+      .select(
+      `id, name, area, engagement_kind, operational_type, status, due_date, owner_id, archived_at,
        client:clients(organization:organizations(name)),
        owner:profiles!projects_owner_id_fkey(full_name),
        project_tasks(status, priority, due_date)`
-    )
-    .order("created_at", { ascending: false })
+      )
+      .order("created_at", { ascending: false }),
+    getQuickCreateOptions(),
+  ])
 
   const today = todayISO()
-  const projects = (data ?? []).map((project) => {
+  const allProjects = (data ?? []).map((project) => {
     const tasks = (project.project_tasks ?? []) as TaskLike[]
     const progress = taskProgress(tasks)
     return {
@@ -51,14 +60,34 @@ export default async function ProyectosPage() {
       blocked: tasks.filter((task) => task.status === "bloqueada").length,
     }
   })
+  const query = params.q?.trim().toLocaleLowerCase("es") ?? ""
+  const projects = allProjects.filter((project) => {
+    const archived = params.archived ?? "active"
+    if (archived === "active" && project.archived_at) return false
+    if (archived === "archived" && !project.archived_at) return false
+    if (params.status && params.status !== "all" && project.status !== params.status) return false
+    if (params.owner && params.owner !== "all" && project.owner_id !== params.owner) return false
+    if (query && !`${project.name} ${project.operational_type ?? ""} ${project.client?.organization?.name ?? ""}`.toLocaleLowerCase("es").includes(query)) return false
+    return true
+  })
 
   return (
-    <>
-      <PageHeader
-        title="Proyectos"
-        description="Las cuatro áreas de Operon, con trabajo interno y de clientes"
-      />
-      <div className="space-y-6 p-4 sm:p-6">
+    <div className="mx-auto w-full max-w-[1500px] space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="label-mono text-primary">Entrega</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em]">Proyectos</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Las cuatro áreas de Operon, con trabajo interno y de clientes.</p>
+        </div>
+        <ProjectCreateButton options={quickOptions} />
+      </div>
+      <form className="grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_11rem_12rem_11rem_auto]">
+        <input name="q" defaultValue={params.q} placeholder="Buscar proyecto" className="h-9 rounded-lg border bg-transparent px-3 text-sm" />
+        <select name="status" defaultValue={params.status ?? "all"} className="h-9 rounded-lg border bg-transparent px-3 text-sm"><option value="all">Todos los estados</option><option value="discovery">Discovery</option><option value="en_progreso">En progreso</option><option value="revision">Revisión</option><option value="activo">Activo</option><option value="pausado">Pausado</option><option value="cerrado">Cerrado</option></select>
+        <select name="owner" defaultValue={params.owner ?? "all"} className="h-9 rounded-lg border bg-transparent px-3 text-sm"><option value="all">Todo el equipo</option>{quickOptions.profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}</select>
+        <select name="archived" defaultValue={params.archived ?? "active"} className="h-9 rounded-lg border bg-transparent px-3 text-sm"><option value="active">Activos</option><option value="archived">Archivados</option><option value="all">Todos</option></select>
+        <button className="h-9 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">Filtrar</button>
+      </form>
         {error && (
           <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
             No se pudo leer la estructura operativa de proyectos. Aplicá la migración nueva antes de continuar.
@@ -140,8 +169,7 @@ export default async function ProyectosPage() {
             </section>
           )
         })}
-      </div>
-    </>
+    </div>
   )
 }
 

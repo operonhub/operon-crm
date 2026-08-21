@@ -28,7 +28,7 @@ export default async function OpportunityDetailPage({
   const { data: opp } = await supabase
     .from("opportunities")
     .select(
-      `id, title, stage, service_type, estimated_value, currency, probability,
+      `id, title, stage, service_type, estimated_value, currency, probability, owner_id, organization_id,
        next_action, next_action_date, expected_close_date, lost_reason,
        organization:organizations(id, name, domain),
        contact:contacts(full_name, email, phone),
@@ -39,11 +39,11 @@ export default async function OpportunityDetailPage({
 
   if (!opp) notFound()
 
-  const { data: activities } = await supabase
-    .from("activities")
-    .select("id, type, body, due_date, completed, created_at")
-    .eq("opportunity_id", id)
-    .order("created_at", { ascending: false })
+  const [{ data: activities }, { data: profiles }, { data: organizations }] = await Promise.all([
+    supabase.from("activities").select("id, type, body, due_date, completed, created_at").eq("opportunity_id", id).order("created_at", { ascending: false }),
+    supabase.from("profiles").select("id, full_name").order("full_name"),
+    supabase.from("organizations").select("id, name").order("name"),
+  ])
 
   // Proyecto ya creado desde esta oportunidad (si fue ganada).
   const { data: project } = await supabase
@@ -70,12 +70,20 @@ export default async function OpportunityDetailPage({
         <EditOpportunityDialog
           opp={{
             id: opp.id,
+            title: opp.title,
+            stage: opp.stage,
+            service_type: opp.service_type,
+            currency: opp.currency,
+            owner_id: opp.owner_id,
+            organization_id: opp.organization_id,
             estimated_value: opp.estimated_value,
             probability: opp.probability,
             next_action: opp.next_action,
             next_action_date: opp.next_action_date,
             expected_close_date: opp.expected_close_date,
           }}
+          profiles={profiles ?? []}
+          organizations={organizations ?? []}
         />
         <StageControl oppId={opp.id} currentStage={opp.stage} />
       </PageHeader>
