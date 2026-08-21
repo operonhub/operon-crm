@@ -142,3 +142,46 @@ export function describeUpstreamFailure(
       "Operon IA no pudo responder. Volvé a intentar en un momento.",
   }
 }
+
+// ------------------------------------------------ eventos hacia el cliente
+
+/**
+ * Inverso exacto de `sse()` en `route.ts`.
+ *
+ * Vive junto a `splitSseChunk` a propósito: el serializador del servidor y el
+ * parser del navegador tienen que poder leerse de un vistazo, porque si se
+ * separan el chat deja de renderizar sin dar ningún error.
+ *
+ * Es estricto por diseño: valida cada campo en vez de confiar en la forma. Un
+ * evento futuro que no entienda se descarta, en lugar de llegar a la pantalla
+ * como `[object Object]`.
+ */
+export function parseAssistantEvent(payload: string): AssistantEvent | null {
+  let data: unknown
+  try {
+    data = JSON.parse(payload)
+  } catch {
+    return null
+  }
+  if (!data || typeof data !== "object") return null
+
+  const event = data as Record<string, unknown>
+  switch (event.type) {
+    case "text":
+      return typeof event.delta === "string" && event.delta.length > 0
+        ? { type: "text", delta: event.delta }
+        : null
+    case "tool":
+      return typeof event.name === "string" && typeof event.status === "string"
+        ? { type: "tool", name: event.name, status: event.status }
+        : null
+    case "done":
+      return { type: "done" }
+    case "error":
+      return typeof event.code === "string" && typeof event.message === "string"
+        ? { type: "error", code: event.code, message: event.message }
+        : null
+    default:
+      return null
+  }
+}
