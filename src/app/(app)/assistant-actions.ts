@@ -19,6 +19,8 @@
  */
 
 import { authorizationMessage, requireMember } from "@/lib/auth"
+import type { AssistantPreferences } from "@/lib/assistant/policy"
+import { loadPreferences, savePreferences } from "@/lib/assistant/service"
 import type { ConversationSummary } from "@/lib/assistant/ui"
 
 /** Un turno tal como quedó guardado. Menos rico que uno en vivo: ver abajo. */
@@ -147,6 +149,68 @@ export async function renameConversation(
 
     if (error) return { error: "No se pudo renombrar la conversación." }
     return { ok: true, title }
+  } catch (error) {
+    return { error: authorizationMessage(error) }
+  }
+}
+
+// -------------------------------------------------------------- preferencias
+
+/**
+ * Preferencias de estilo de la persona.
+ *
+ * `loadPreferences` no crea la fila si no existe: devuelve el perfil neutral.
+ * Por eso hace falta este escritor — sin él nadie puede tocar
+ * `preferred_user_name` y el saludo nunca sale del respaldo.
+ */
+export async function readPreferences(): Promise<
+  { preferences: AssistantPreferences } | { error: string }
+> {
+  try {
+    const { supabase, user } = await requireMember()
+    return { preferences: await loadPreferences(supabase, user.id) }
+  } catch (error) {
+    return { error: authorizationMessage(error) }
+  }
+}
+
+/**
+ * Guarda preferencias de estilo. Nunca de permisos: qué puede hacer Operon IA
+ * lo decide la política del servidor, no una elección de esta pantalla.
+ */
+export async function writePreferences(
+  raw: unknown
+): Promise<{ preferences: AssistantPreferences } | { error: string }> {
+  try {
+    const { supabase, user } = await requireMember()
+    return await savePreferences(supabase, user.id, raw)
+  } catch (error) {
+    return { error: authorizationMessage(error) }
+  }
+}
+
+/**
+ * Guarda sólo cómo quiere que le digan, sin tocar el resto.
+ *
+ * Existe como acción propia y no como una llamada a `writePreferences` con un
+ * objeto parcial porque `sanitizePreferences` completa con valores por defecto
+ * todo lo que no venga: mandar sólo el nombre desde el cliente reescribiría el
+ * tono, el humor y las notas libres. Acá se lee, se modifica y se escribe del
+ * lado del servidor, así no hay manera de llamarla mal.
+ */
+export async function setPreferredName(
+  rawName: string
+): Promise<{ preferences: AssistantPreferences } | { error: string }> {
+  const preferredUserName = rawName.trim()
+  if (!preferredUserName) return { error: "Escribí un nombre." }
+
+  try {
+    const { supabase, user } = await requireMember()
+    const current = await loadPreferences(supabase, user.id)
+    return await savePreferences(supabase, user.id, {
+      ...current,
+      preferredUserName,
+    })
   } catch (error) {
     return { error: authorizationMessage(error) }
   }

@@ -1,9 +1,10 @@
 "use client"
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react"
-import { ArrowDown } from "lucide-react"
+import { ArrowDown, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { greetingFor } from "@/lib/assistant/ui"
+import { setPreferredName } from "@/app/(app)/assistant-actions"
 import { OperonArc } from "@/components/brand/operon-arc"
 import { useAssistant } from "./assistant-provider"
 import { AssistantMessage } from "./assistant-message"
@@ -22,6 +23,8 @@ export function AssistantThread() {
     greetingSeed,
     retryLast,
     send,
+    applyIdentity,
+    displayName,
   } = useAssistant()
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -58,6 +61,9 @@ export function AssistantThread() {
             seed={greetingSeed}
             configured={configured}
             onPick={send}
+            onNameChosen={(name) =>
+              applyIdentity({ displayName, preferredName: name })
+            }
           />
         ) : (
           <div className="mx-auto max-w-3xl space-y-5">
@@ -106,12 +112,14 @@ function EmptyState({
   seed,
   configured,
   onPick,
+  onNameChosen,
 }: {
   preferredName: string
   fullName: string
   seed: number
   configured: boolean
   onPick: (message: string) => void
+  onNameChosen: (name: string) => void
 }) {
   // Se deriva en el render, no en un efecto: el panel sólo existe después de
   // que alguien lo abre, así que no hay render de servidor con el que
@@ -128,6 +136,13 @@ function EmptyState({
         <p className="font-heading text-xl leading-tight font-semibold tracking-tight text-[#FBF9F4] sm:text-2xl">
           {saludo || " "}
         </p>
+
+        {/*
+          La primera vez el saludo sale del nombre real del perfil. Preguntarlo
+          acá es lo único que hace que la preferencia se pueda escribir sin ir
+          a buscarla a la configuración.
+        */}
+        {!preferredName && <NamePrompt onDone={onNameChosen} />}
 
         {configured ? (
           <div className="mt-6 flex flex-col gap-2">
@@ -154,6 +169,83 @@ function EmptyState({
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Pedido de nombre de la primera vez.
+ *
+ * Se ofrece, no se impone: se puede ignorar y seguir usando el panel. Si nadie
+ * lo completa, el saludo sigue saliendo del nombre del perfil, que también es
+ * correcto — sólo menos suyo.
+ */
+function NamePrompt({ onDone }: { onDone: (name: string) => void }) {
+  const [value, setValue] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function guardar() {
+    const name = value.trim()
+    if (!name || saving) return
+    setSaving(true)
+    setError(null)
+
+    const result = await setPreferredName(name)
+    setSaving(false)
+    if ("error" in result) {
+      setError(result.error)
+      return
+    }
+    onDone(result.preferences.preferredUserName)
+  }
+
+  return (
+    <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left">
+      <label
+        htmlFor="preferred-name"
+        className="label-mono block text-[#FBF9F4]/60"
+      >
+        ¿Cómo querés que te diga?
+      </label>
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          id="preferred-name"
+          type="text"
+          value={value}
+          maxLength={60}
+          placeholder="Tu nombre o el apodo que quieras"
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault()
+              void guardar()
+            }
+          }}
+          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-[#FBF9F4] transition-colors placeholder:text-[#FBF9F4]/30 focus:border-white/25 focus:outline-none motion-reduce:transition-none"
+        />
+        <button
+          type="button"
+          onClick={() => void guardar()}
+          disabled={!value.trim() || saving}
+          aria-label="Guardar nombre"
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-lg transition",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning",
+            "motion-reduce:transition-none",
+            value.trim() && !saving
+              ? "bg-white/10 text-[#FBF9F4] hover:bg-white/20"
+              : "cursor-not-allowed bg-white/[0.05] text-[#FBF9F4]/25"
+          )}
+        >
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

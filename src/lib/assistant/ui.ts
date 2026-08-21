@@ -332,3 +332,103 @@ export function toolLabel(name: string): string {
 
 /** Re-exportado para que los componentes no importen `request.ts` sólo por esto. */
 export { CONTEXT_TYPES }
+
+// ----------------------------------------------------------- preferencias
+
+/**
+ * Descripción del formulario de preferencias, como datos.
+ *
+ * Escrito así y no a mano en el JSX para que un test pueda afirmar que todo
+ * valor de los catálogos de `policy.ts` tiene su etiqueta. Si mañana se agrega
+ * un tono allá y se olvida acá, la opción no aparecería en pantalla y el
+ * código compilaría igual; con esta forma, el olvido es un test en rojo.
+ *
+ * Sólo hay preferencias de estilo. Qué puede hacer Operon IA no se elige acá:
+ * eso lo fija la política del servidor.
+ */
+export type PreferenceField = {
+  key:
+    | "tone"
+    | "technicalLevel"
+    | "verbosity"
+    | "humorLevel"
+    | "geekReferenceFrequency"
+    | "proactivityLevel"
+    | "responseFormat"
+  legend: string
+  help: string
+  options: { value: string; label: string }[]
+}
+
+export const PREFERENCE_FIELDS: PreferenceField[] = [
+  {
+    key: "tone",
+    legend: "Tono",
+    help: "Cómo te habla.",
+    options: [
+      { value: "directo", label: "Directo" },
+      { value: "neutral", label: "Neutral" },
+      { value: "cercano", label: "Cercano" },
+    ],
+  },
+  {
+    key: "technicalLevel",
+    legend: "Nivel técnico",
+    help: "Cuánta jerga da por sabida.",
+    options: [
+      { value: "basico", label: "Básico" },
+      { value: "intermedio", label: "Intermedio" },
+      { value: "avanzado", label: "Avanzado" },
+    ],
+  },
+  {
+    key: "verbosity",
+    legend: "Extensión",
+    help: "Qué tan largas son las respuestas.",
+    options: [
+      { value: "breve", label: "Breve" },
+      { value: "equilibrada", label: "Equilibrada" },
+      { value: "detallada", label: "Detallada" },
+    ],
+  },
+  {
+    key: "responseFormat",
+    legend: "Formato",
+    help: "Por dónde empieza cada respuesta.",
+    options: [
+      { value: "conclusion_primero", label: "Conclusión primero" },
+      { value: "narrativo", label: "Narrativo" },
+      { value: "puntos", label: "En puntos" },
+    ],
+  },
+  {
+    key: "proactivityLevel",
+    legend: "Proactividad",
+    help: "Cuánto sugiere sin que le pidas.",
+    options: [
+      { value: "baja", label: "Baja" },
+      { value: "media", label: "Media" },
+      { value: "alta", label: "Alta" },
+    ],
+  },
+  {
+    key: "humorLevel",
+    legend: "Humor",
+    help: "Cuánto se permite.",
+    options: [
+      { value: "ninguno", label: "Nada" },
+      { value: "leve", label: "Leve" },
+      { value: "frecuente", label: "Seguido" },
+    ],
+  },
+  {
+    key: "geekReferenceFrequency",
+    legend: "Referencias geek",
+    help: "Guiños a cine, series y tecnología.",
+    options: [
+      { value: "nunca", label: "Nunca" },
+      { value: "ocasional", label: "A veces" },
+      { value: "frecuente", label: "Seguido" },
+    ],
+  },
+]

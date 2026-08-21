@@ -38,6 +38,9 @@ import {
   type PageContext,
 } from "@/lib/assistant/ui"
 
+/** El panel muestra una cosa por vez: el hilo o la configuración. */
+export type AssistantView = "chat" | "preferences"
+
 export type Turn = {
   id: string
   role: "user" | "assistant"
@@ -67,6 +70,7 @@ type AssistantState = {
   drawerOpen: boolean
   /** Id que se está abriendo, para mostrar en cuál esperar. */
   loadingConversationId: string | null
+  view: AssistantView
   context: PageContext
   greetingSeed: number
   displayName: string
@@ -75,6 +79,16 @@ type AssistantState = {
   setOpen: (open: boolean) => void
   toggleExpanded: () => void
   setDrawerOpen: (open: boolean) => void
+  setView: (view: AssistantView) => void
+  /**
+   * Refresca el nombre del asistente y el de la persona sin recargar. Lo llama
+   * la pantalla de preferencias al guardar, para que el encabezado y el saludo
+   * cambien en el acto.
+   */
+  applyIdentity: (identity: {
+    displayName: string
+    preferredName: string
+  }) => void
   send: (message: string) => void
   stop: () => void
   retryLast: () => void
@@ -125,6 +139,17 @@ export function AssistantProvider({
   const [loadingConversationId, setLoadingConversationId] = useState<
     string | null
   >(null)
+  const [view, setView] = useState<AssistantView>("chat")
+
+  /**
+   * Semilla del servidor, igual que las conversaciones, pero acá sí puede
+   * cambiar en vivo: al guardar preferencias queremos ver el nombre nuevo sin
+   * recargar la página.
+   */
+  const [identity, setIdentity] = useState(() => ({
+    displayName,
+    preferredName,
+  }))
 
   /**
    * Los datos del servidor son semilla, no fuente continua: `RefreshOnFocus`
@@ -457,14 +482,17 @@ export function AssistantProvider({
       conversations,
       drawerOpen,
       loadingConversationId,
+      view,
       context,
       greetingSeed,
-      displayName,
-      preferredName,
+      displayName: identity.displayName,
+      preferredName: identity.preferredName,
       fullName,
       setOpen,
       toggleExpanded: () => setExpanded((value) => !value),
       setDrawerOpen,
+      setView,
+      applyIdentity: setIdentity,
       send: (message: string) => void send(message),
       stop,
       retryLast,
@@ -484,10 +512,10 @@ export function AssistantProvider({
       conversations,
       drawerOpen,
       loadingConversationId,
+      view,
       context,
       greetingSeed,
-      displayName,
-      preferredName,
+      identity,
       fullName,
       send,
       stop,

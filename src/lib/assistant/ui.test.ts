@@ -7,7 +7,18 @@ import {
   greetingFor,
   parseBlocks,
   pathToContext,
+  PREFERENCE_FIELDS,
 } from "./ui"
+import {
+  DEFAULT_PREFERENCES,
+  GEEK_FREQUENCIES,
+  HUMOR_LEVELS,
+  PROACTIVITY_LEVELS,
+  RESPONSE_FORMATS,
+  TECHNICAL_LEVELS,
+  TONES,
+  VERBOSITIES,
+} from "./policy"
 
 const UUID = "aaaaaaaa-1111-2222-3333-444444444444"
 
@@ -283,5 +294,55 @@ describe("parseBlocks", () => {
   it("texto vacío no genera bloques", () => {
     expect(parseBlocks("")).toEqual([])
     expect(parseBlocks("   \n\n  ")).toEqual([])
+  })
+})
+
+describe("PREFERENCE_FIELDS", () => {
+  /**
+   * El seguro contra el olvido silencioso: si alguien agrega un tono en
+   * `policy.ts` y no lo agrega acá, la opción no aparecería en pantalla y todo
+   * compilaría igual. Este test convierte ese olvido en rojo.
+   */
+  const CATALOGOS: Record<string, readonly string[]> = {
+    tone: TONES,
+    technicalLevel: TECHNICAL_LEVELS,
+    verbosity: VERBOSITIES,
+    humorLevel: HUMOR_LEVELS,
+    geekReferenceFrequency: GEEK_FREQUENCIES,
+    proactivityLevel: PROACTIVITY_LEVELS,
+    responseFormat: RESPONSE_FORMATS,
+  }
+
+  it("ofrece exactamente los valores que acepta la política", () => {
+    for (const field of PREFERENCE_FIELDS) {
+      const catalogo = CATALOGOS[field.key]
+      expect(catalogo, `falta el catálogo de ${field.key}`).toBeDefined()
+      expect(field.options.map((o) => o.value).sort()).toEqual(
+        [...catalogo].sort()
+      )
+    }
+  })
+
+  it("cubre todos los catálogos, sin dejar ninguno afuera del formulario", () => {
+    expect(PREFERENCE_FIELDS.map((f) => f.key).sort()).toEqual(
+      Object.keys(CATALOGOS).sort()
+    )
+  })
+
+  it("cada opción tiene una etiqueta legible, no el valor crudo", () => {
+    for (const field of PREFERENCE_FIELDS) {
+      for (const option of field.options) {
+        expect(option.label.length).toBeGreaterThan(0)
+        expect(option.label).not.toBe(option.value)
+      }
+    }
+  })
+
+  /** Lo que el valor por defecto elige tiene que existir como opción. */
+  it("los valores por defecto son elegibles desde el formulario", () => {
+    for (const field of PREFERENCE_FIELDS) {
+      const actual = DEFAULT_PREFERENCES[field.key]
+      expect(field.options.map((o) => o.value)).toContain(actual)
+    }
   })
 })

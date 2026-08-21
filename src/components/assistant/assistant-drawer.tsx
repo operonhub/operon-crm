@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useRef, useState } from "react"
-import { Check, Loader2, Pencil, Trash2, X } from "lucide-react"
+import { Check, Loader2, Pencil, Settings2, Trash2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { todayISO } from "@/lib/format"
 import { conversationGroups, type ConversationSummary } from "@/lib/assistant/ui"
@@ -28,6 +28,7 @@ export function AssistantDrawer() {
     openConversation,
     archive,
     rename,
+    setView,
   } = useAssistant()
 
   if (!drawerOpen) return null
@@ -101,6 +102,25 @@ export function AssistantDrawer() {
             ))
           )}
         </div>
+
+        {/*
+          Preferencias vive acá y no en la barra de arriba: se toca una vez
+          cada tanto, y cinco botones de ícono en un panel de 480px hacían que
+          el estado de conexión se partiera en dos líneas.
+        */}
+        <footer className="shrink-0 border-t border-white/10 p-2">
+          <button
+            type="button"
+            onClick={() => {
+              setView("preferences")
+              setDrawerOpen(false)
+            }}
+            className="label-mono flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[#FBF9F4]/60 transition-colors hover:bg-white/[0.06] hover:text-[#FBF9F4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning motion-reduce:transition-none"
+          >
+            <Settings2 className="size-3.5" aria-hidden="true" />
+            Preferencias
+          </button>
+        </footer>
       </aside>
     </>
   )

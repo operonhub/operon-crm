@@ -2,7 +2,11 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/supabase/types"
-import { buildInstructions, sanitizePreferences } from "./policy"
+import {
+  buildInstructions,
+  sanitizePreferences,
+  type AssistantPreferences,
+} from "./policy"
 import { readHermesConfig } from "./config"
 import { streamFromHermes, type StreamMessage } from "./provider"
 import type { AssistantEvent } from "./stream"
@@ -52,6 +56,46 @@ export async function loadPreferences(db: Db, userId: string) {
         }
       : undefined
   )
+}
+
+/**
+ * Guarda las preferencias de una persona.
+ *
+ * Vive pegada a `loadPreferences` a propósito: son el mismo mapeo entre
+ * columnas y campos, leído en un sentido y en el otro. Separarlas haría que
+ * agregar una preferencia funcione al guardar y se pierda al leer.
+ *
+ * Se sanea antes de escribir aunque la base ya tenga sus `check`: así lo que
+ * entra a la tabla es exactamente lo que el código sabe interpretar, y no
+ * dependemos de que el mensaje de error de Postgres sea legible.
+ */
+export async function savePreferences(
+  db: Db,
+  userId: string,
+  raw: unknown
+): Promise<{ preferences: AssistantPreferences } | { error: string }> {
+  const preferences = sanitizePreferences(raw)
+
+  const { error } = await db.from("assistant_profiles").upsert(
+    {
+      user_id: userId,
+      display_name: preferences.displayName,
+      preferred_user_name: preferences.preferredUserName,
+      tone: preferences.tone,
+      technical_level: preferences.technicalLevel,
+      verbosity: preferences.verbosity,
+      humor_level: preferences.humorLevel,
+      geek_reference_frequency: preferences.geekReferenceFrequency,
+      proactivity_level: preferences.proactivityLevel,
+      preferred_response_format: preferences.responseFormat,
+      preferred_language: preferences.language,
+      custom_preferences: preferences.customPreferences,
+    },
+    { onConflict: "user_id" }
+  )
+
+  if (error) return { error: "No se pudieron guardar las preferencias." }
+  return { preferences }
 }
 
 // --------------------------------------------------------------- contexto

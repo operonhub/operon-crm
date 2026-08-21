@@ -8,6 +8,7 @@ import { useAssistant } from "./assistant-provider"
 import { AssistantThread } from "./assistant-thread"
 import { AssistantComposer } from "./assistant-composer"
 import { AssistantDrawer } from "./assistant-drawer"
+import { AssistantPreferences } from "./assistant-preferences"
 
 /**
  * El panel de Operon IA.
@@ -40,6 +41,7 @@ export function AssistantPanel() {
     drawerOpen,
     setDrawerOpen,
     conversations,
+    view,
   } = useAssistant()
 
   const connection = connectionLabel({ configured, status })
@@ -85,14 +87,22 @@ export function AssistantPanel() {
                 )
           )}
         >
-          {/* base-ui avisa si falta un título accesible. */}
-          <Dialog.Title className="sr-only">Operon IA</Dialog.Title>
-
           <header className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <h2 className="truncate font-heading text-sm font-semibold tracking-tight">
+              {/*
+                El título del diálogo ES el encabezado visible, no uno oculto
+                aparte. Con dos, un lector de pantalla anunciaba el nombre fijo
+                ("Operon IA") mientras la pantalla mostraba el elegido
+                ("JARVIS"), y quedaban dos h2 hermanos diciendo cosas
+                distintas.
+              */}
+              <Dialog.Title
+                render={
+                  <h2 className="truncate font-heading text-sm font-semibold tracking-tight" />
+                }
+              >
                 {displayName}
-              </h2>
+              </Dialog.Title>
               <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 label-mono text-[#FBF9F4]/60">
                 <span
                   aria-hidden="true"
@@ -156,8 +166,14 @@ export function AssistantPanel() {
             </Dialog.Close>
           </header>
 
-          <AssistantThread />
-          <AssistantComposer />
+          {view === "preferences" ? (
+            <AssistantPreferences />
+          ) : (
+            <>
+              <AssistantThread />
+              <AssistantComposer />
+            </>
+          )}
           <AssistantDrawer />
 
           {/*
