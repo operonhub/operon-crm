@@ -1,12 +1,13 @@
 "use client"
 
 import { Dialog } from "@base-ui/react/dialog"
-import { Maximize2, Minimize2, Plus, X } from "lucide-react"
+import { History, Maximize2, Minimize2, Plus, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CAPABILITY_NOTE, connectionLabel } from "@/lib/assistant/ui"
 import { useAssistant } from "./assistant-provider"
 import { AssistantThread } from "./assistant-thread"
 import { AssistantComposer } from "./assistant-composer"
+import { AssistantDrawer } from "./assistant-drawer"
 
 /**
  * El panel de Operon IA.
@@ -36,6 +37,9 @@ export function AssistantPanel() {
     displayName,
     newSession,
     stop,
+    drawerOpen,
+    setDrawerOpen,
+    conversations,
   } = useAssistant()
 
   const connection = connectionLabel({ configured, status })
@@ -105,6 +109,23 @@ export function AssistantPanel() {
 
             <button
               type="button"
+              onClick={() => setDrawerOpen(!drawerOpen)}
+              aria-expanded={drawerOpen}
+              aria-label="Conversaciones recientes"
+              title="Conversaciones recientes"
+              className="relative flex size-8 items-center justify-center rounded-lg text-[#FBF9F4]/60 transition-colors hover:bg-white/[0.08] hover:text-[#FBF9F4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning motion-reduce:transition-none"
+            >
+              <History className="size-4" aria-hidden="true" />
+              {conversations.length > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-warning"
+                />
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={newSession}
               aria-label="Nueva sesión"
               title="Nueva sesión"
@@ -137,6 +158,7 @@ export function AssistantPanel() {
 
           <AssistantThread />
           <AssistantComposer />
+          <AssistantDrawer />
 
           {/*
             Anuncia sólo transiciones de estado. Poner aria-live en el texto

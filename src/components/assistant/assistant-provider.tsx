@@ -23,6 +23,12 @@ import {
   useState,
 } from "react"
 import { usePathname } from "next/navigation"
+import {
+  archiveConversation,
+  listConversations,
+  loadConversation,
+  renameConversation,
+} from "@/app/(app)/assistant-actions"
 import { MAX_MESSAGE_LENGTH } from "@/lib/assistant/request"
 import { parseAssistantEvent, splitSseChunk } from "@/lib/assistant/stream"
 import {
@@ -41,6 +47,11 @@ export type Turn = {
   error: string | null
   /** Una respuesta detenida a mano puede no haber quedado guardada. */
   stopped: boolean
+  /**
+   * Guardada pero cortada antes de terminar. Distinto de `error`: acá no hay
+   * nada que reintentar, sólo hay que avisar que el texto está incompleto.
+   */
+  incomplete: boolean
 }
 
 type AssistantState = {
@@ -53,6 +64,9 @@ type AssistantState = {
   streamingText: string
   conversationId: string | null
   conversations: ConversationSummary[]
+  drawerOpen: boolean
+  /** Id que se está abriendo, para mostrar en cuál esperar. */
+  loadingConversationId: string | null
   context: PageContext
   greetingSeed: number
   displayName: string
@@ -60,10 +74,14 @@ type AssistantState = {
   fullName: string
   setOpen: (open: boolean) => void
   toggleExpanded: () => void
+  setDrawerOpen: (open: boolean) => void
   send: (message: string) => void
   stop: () => void
   retryLast: () => void
   newSession: () => void
+  openConversation: (id: string) => void
+  archive: (id: string) => void
+  rename: (id: string, title: string) => void
 }
 
 const AssistantContext = createContext<AssistantState | null>(null)
@@ -103,13 +121,21 @@ export function AssistantProvider({
   const [streamingText, setStreamingText] = useState("")
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [greetingSeed, setGreetingSeed] = useState(0)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [loadingConversationId, setLoadingConversationId] = useState<
+    string | null
+  >(null)
 
   /**
    * Los datos del servidor son semilla, no fuente continua: `RefreshOnFocus`
    * dispara `router.refresh()` al volver a la pestaña y cambiaría la identidad
    * de estos props. Sincronizarlos por efecto borraría una charla en curso.
+   *
+   * La lista sí se actualiza, pero sólo desde acciones que alguien pidió
+   * (mandar un mensaje, archivar, renombrar). Es la distinción que importa:
+   * reaccionar a un prop que cambió solo, no; reaccionar a un acto, sí.
    */
-  const [conversations] = useState(() => initialConversations)
+  const [conversations, setConversations] = useState(() => initialConversations)
 
   const abortRef = useRef<AbortController | null>(null)
   const bufferRef = useRef("")
@@ -132,6 +158,19 @@ export function AssistantProvider({
       cancelAnimationFrame(frameRef.current)
       frameRef.current = 0
     }
+  }, [])
+
+  /**
+   * Vuelve a pedir la lista al servidor en vez de insertar la fila a mano.
+   * El título lo arma el backend recortando el primer mensaje; replicar esa
+   * regla acá sería una segunda copia que tarde o temprano se despega. Además
+   * así el orden por `updated_at` sale bien sin recalcularlo.
+   */
+  const refreshList = useCallback(async () => {
+    const result = await listConversations()
+    // Si la lectura falló se deja la lista que ya había: vaciarla haría
+    // parecer que las conversaciones se perdieron.
+    if ("conversations" in result) setConversations(result.conversations)
   }, [])
 
   /** Cierra el turno en curso y lo pasa al historial. */
@@ -171,6 +210,7 @@ export function AssistantProvider({
           tools: [],
           error: null,
           stopped: false,
+          incomplete: false,
         },
         {
           id: nextTurnId(),
@@ -179,6 +219,7 @@ export function AssistantProvider({
           tools: [],
           error: null,
           stopped: false,
+          incomplete: false,
         },
       ])
 
@@ -270,9 +311,12 @@ export function AssistantProvider({
         setStatus("error")
       } finally {
         abortRef.current = null
+        // También tras un error o un corte: si la conversación llegó a
+        // crearse, tiene que aparecer en la lista igual.
+        void refreshList()
       }
     },
-    [context, conversationId, finishTurn, scheduleFlush, status]
+    [context, conversationId, finishTurn, refreshList, scheduleFlush, status]
   )
 
   const stop = useCallback(() => {
@@ -294,8 +338,92 @@ export function AssistantProvider({
     setTurns([])
     setConversationId(null)
     setStatus("idle")
+    setDrawerOpen(false)
     setGreetingSeed((seed) => seed + 1)
   }, [cancelFlush])
+
+  /**
+   * Trae una conversación guardada y la pone en pantalla.
+   *
+   * Corta lo que esté respondiendo antes de reemplazar el hilo: dejar un
+   * stream vivo escribiendo sobre una conversación recién abierta mezclaría
+   * dos charlas distintas en la misma pantalla.
+   */
+  const openConversation = useCallback(
+    async (id: string) => {
+      abortRef.current?.abort()
+      cancelFlush()
+      bufferRef.current = ""
+      setStreamingText("")
+      setLoadingConversationId(id)
+
+      const result = await loadConversation(id)
+      setLoadingConversationId(null)
+
+      if ("error" in result) {
+        setTurns([
+          {
+            id: nextTurnId(),
+            role: "assistant",
+            content: "",
+            tools: [],
+            error: result.error,
+            stopped: false,
+            incomplete: false,
+          },
+        ])
+        setStatus("error")
+        return
+      }
+
+      setTurns(
+        result.turns.map((turn) => ({
+          id: turn.id,
+          role: turn.role,
+          content: turn.content,
+          // Las herramientas no se guardan todavía, así que un turno releído
+          // no las muestra. Mejor eso que inventar cuáles fueron.
+          tools: [],
+          error: null,
+          stopped: false,
+          incomplete: turn.incomplete,
+        }))
+      )
+      setConversationId(result.conversation.id)
+      setStatus("idle")
+      setDrawerOpen(false)
+      // Reintentar no tiene sentido sobre un hilo releído: no hay un último
+      // mensaje "en vuelo" que reenviar.
+      lastMessageRef.current = ""
+    },
+    [cancelFlush]
+  )
+
+  const archive = useCallback(
+    async (id: string) => {
+      // Optimista: la fila desaparece al instante y el servidor confirma.
+      setConversations((prev) => prev.filter((item) => item.id !== id))
+      if (id === conversationId) newSession()
+
+      const result = await archiveConversation(id)
+      // Si falló, la lista vuelve a lo que dice el servidor.
+      if ("error" in result) void refreshList()
+    },
+    [conversationId, newSession, refreshList]
+  )
+
+  const rename = useCallback(
+    async (id: string, title: string) => {
+      const result = await renameConversation(id, title)
+      if ("error" in result) return
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, title: result.title } : item
+        )
+      )
+    },
+    []
+  )
 
   // Atajo global. Se ignora si el foco está escribiendo en otro lado del CRM.
   useEffect(() => {
@@ -327,6 +455,8 @@ export function AssistantProvider({
       streamingText,
       conversationId,
       conversations,
+      drawerOpen,
+      loadingConversationId,
       context,
       greetingSeed,
       displayName,
@@ -334,10 +464,14 @@ export function AssistantProvider({
       fullName,
       setOpen,
       toggleExpanded: () => setExpanded((value) => !value),
+      setDrawerOpen,
       send: (message: string) => void send(message),
       stop,
       retryLast,
       newSession,
+      openConversation: (id: string) => void openConversation(id),
+      archive: (id: string) => void archive(id),
+      rename: (id: string, title: string) => void rename(id, title),
     }),
     [
       open,
@@ -348,6 +482,8 @@ export function AssistantProvider({
       streamingText,
       conversationId,
       conversations,
+      drawerOpen,
+      loadingConversationId,
       context,
       greetingSeed,
       displayName,
@@ -357,6 +493,9 @@ export function AssistantProvider({
       stop,
       retryLast,
       newSession,
+      openConversation,
+      archive,
+      rename,
     ]
   )
 

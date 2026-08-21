@@ -206,6 +206,17 @@ export function AssistantMessage({
         </p>
       )}
 
+      {/*
+        Distinto de `stopped`: acá el texto sí quedó guardado, sólo que se
+        cortó antes de terminar. No lleva botón de reintentar porque no hay
+        un mensaje en vuelo que reenviar, sólo un hilo releído.
+      */}
+      {turn.incomplete && (
+        <p className="label-mono text-[#FBF9F4]/60">
+          Esta respuesta se cortó antes de terminar
+        </p>
+      )}
+
       {showActions && (
         <div className="flex items-center gap-1">
           <button

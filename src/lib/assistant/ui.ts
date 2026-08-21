@@ -9,7 +9,7 @@
  * `service.ts`, `config.ts` ni `provider.ts`: el primero tiene `server-only` y
  * los otros arrastran `node:crypto`.
  */
-import { greeting, toISODate } from "@/lib/format"
+import { greeting, todayISO, toISODate } from "@/lib/format"
 import { CONTEXT_TYPES, type ContextType } from "./request"
 
 // --------------------------------------------------------------- contexto
@@ -145,6 +145,24 @@ function previousDay(iso: string): string {
   return date.toISOString().slice(0, 10)
 }
 
+/**
+ * Día argentino de un timestamp.
+ *
+ * No sirve cortar el string en la "T": eso da la fecha UTC, y como Argentina
+ * va tres horas atrás, todo lo posterior a las 21:00 aparecería con la fecha
+ * del día siguiente. Se reformatea con `todayISO`, que ya usa `TIMEZONE`, para
+ * que el huso quede definido en un solo lugar del repo.
+ */
+function argentineDay(value: string | null | undefined): string | null {
+  if (!value) return null
+  // Una columna `date` ya viene sin hora: interpretarla como medianoche UTC
+  // la correría un día hacia atrás.
+  if (!value.includes("T")) return toISODate(value)
+
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : todayISO(date)
+}
+
 /** Agrupa por día usando la fecha argentina, no la del navegador. */
 export function conversationGroups(
   conversations: ConversationSummary[],
@@ -158,7 +176,7 @@ export function conversationGroups(
   }
 
   for (const conversation of conversations) {
-    const day = toISODate(conversation.updated_at)
+    const day = argentineDay(conversation.updated_at)
     // Una fecha futura (reloj desincronizado) cuenta como hoy: preferimos
     // mostrarla arriba antes que perderla en "Anteriores".
     if (!day || day >= today) buckets.Hoy.push(conversation)

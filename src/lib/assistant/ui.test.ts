@@ -196,6 +196,31 @@ describe("conversationGroups", () => {
     const grupos = conversationGroups([conv("a", "2026-12-31")], HOY)
     expect(grupos[0].items.map((i) => i.id)).toEqual(["a"])
   })
+
+  /**
+   * Argentina va tres horas atrás de UTC, así que todo lo que pasa después de
+   * las 21:00 ya figura como el día siguiente en UTC. Agrupar por la fecha
+   * cruda del timestamp mandaría una charla de anoche a "Hoy" y una de esta
+   * madrugada a "Ayer": justo al revés de lo que ve la persona.
+   */
+  it("agrupa por el día argentino, no por el día UTC", () => {
+    // 22:00 del 20 en Argentina = 01:00 del 21 en UTC.
+    const anoche = { id: "anoche", title: "anoche", updated_at: "2026-08-21T01:00:00Z" }
+    // 00:30 del 21 en Argentina = 03:30 del 21 en UTC.
+    const madrugada = {
+      id: "madrugada",
+      title: "madrugada",
+      updated_at: "2026-08-21T03:30:00Z",
+    }
+
+    const grupos = conversationGroups([anoche, madrugada], HOY)
+    const porEtiqueta = Object.fromEntries(
+      grupos.map((g) => [g.label, g.items.map((i) => i.id)])
+    )
+
+    expect(porEtiqueta.Ayer).toEqual(["anoche"])
+    expect(porEtiqueta.Hoy).toEqual(["madrugada"])
+  })
 })
 
 describe("parseBlocks", () => {
