@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { AppSidebar, MobileNav } from "@/components/app-sidebar"
 import { RefreshOnFocus } from "@/components/refresh-on-focus"
+import { AssistantMount } from "@/components/assistant/assistant-mount"
 
 export default async function AppLayout({
   children,
@@ -49,6 +50,11 @@ export default async function AppLayout({
           {children}
         </main>
       </div>
+      {/*
+        Hermano de <main>, no hijo: dentro del slot `children` se remontaría en
+        cada navegación y se perdería la conversación en curso.
+      */}
+      <AssistantMount />
     </div>
   )
 }
