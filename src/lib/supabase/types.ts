@@ -382,6 +382,134 @@ export type Database = {
           },
         ]
       }
+      assistant_conversations: {
+        Row: {
+          archived_at: string | null
+          context_id: string | null
+          context_type: string
+          created_at: string
+          hermes_session_id: string | null
+          id: string
+          owner_user_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          context_id?: string | null
+          context_type?: string
+          created_at?: string
+          hermes_session_id?: string | null
+          id?: string
+          owner_user_id: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          context_id?: string | null
+          context_type?: string
+          created_at?: string
+          hermes_session_id?: string | null
+          id?: string
+          owner_user_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      assistant_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          source_metadata: Json | null
+          status: string
+        }
+        Insert: {
+          content?: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+          source_metadata?: Json | null
+          status?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          source_metadata?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_profiles: {
+        Row: {
+          created_at: string
+          custom_preferences: string | null
+          display_name: string
+          geek_reference_frequency: string
+          humor_level: string
+          id: string
+          preferred_language: string
+          preferred_response_format: string
+          preferred_user_name: string
+          proactivity_level: string
+          technical_level: string
+          tone: string
+          updated_at: string
+          user_id: string
+          verbosity: string
+        }
+        Insert: {
+          created_at?: string
+          custom_preferences?: string | null
+          display_name?: string
+          geek_reference_frequency?: string
+          humor_level?: string
+          id?: string
+          preferred_language?: string
+          preferred_response_format?: string
+          preferred_user_name?: string
+          proactivity_level?: string
+          technical_level?: string
+          tone?: string
+          updated_at?: string
+          user_id: string
+          verbosity?: string
+        }
+        Update: {
+          created_at?: string
+          custom_preferences?: string | null
+          display_name?: string
+          geek_reference_frequency?: string
+          humor_level?: string
+          id?: string
+          preferred_language?: string
+          preferred_response_format?: string
+          preferred_user_name?: string
+          proactivity_level?: string
+          technical_level?: string
+          tone?: string
+          updated_at?: string
+          user_id?: string
+          verbosity?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -2194,6 +2322,10 @@ export type Database = {
       mark_conversation_read: {
         Args: { p_conversation_id: string }
         Returns: undefined
+      }
+      owns_assistant_conversation: {
+        Args: { p_conversation_id: string }
+        Returns: boolean
       }
     }
     Enums: {
