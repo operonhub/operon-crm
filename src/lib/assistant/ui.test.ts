@@ -8,6 +8,7 @@ import {
   parseBlocks,
   pathToContext,
   PREFERENCE_FIELDS,
+  CAPABILITY_NOTE,
 } from "./ui"
 import {
   DEFAULT_PREFERENCES,
@@ -344,5 +345,27 @@ describe("PREFERENCE_FIELDS", () => {
       const actual = DEFAULT_PREFERENCES[field.key]
       expect(field.options.map((o) => o.value)).toContain(actual)
     }
+  })
+})
+
+describe("CAPABILITY_NOTE", () => {
+  /**
+   * Este test nació de un error real: el cartel decía "Web · sin acceso al
+   * CRM" mientras el Hermes del VPS tenía la búsqueda web apagada por falta
+   * de credencial. El panel afirmaba una capacidad que no existía.
+   *
+   * La regla que codifica: el cartel puede declarar **límites**, nunca
+   * **capacidades**. Un límite de menos es un cartel conservador; una
+   * capacidad de más es una mentira.
+   */
+  it("no afirma ninguna capacidad, sólo el límite", () => {
+    const capacidades =
+      /\bweb\b|búsqueda|busqueda|internet|CRM conectado|n8n|\d+\s*tools?|herramientas? disponibles/i
+    expect(CAPABILITY_NOTE).not.toMatch(capacidades)
+  })
+
+  it("deja claro que no ve los datos del CRM", () => {
+    expect(CAPABILITY_NOTE).toMatch(/sin acceso/i)
+    expect(CAPABILITY_NOTE).toMatch(/CRM/)
   })
 })

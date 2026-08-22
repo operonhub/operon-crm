@@ -122,8 +122,25 @@ export function connectionLabel(state: {
   return { text: "Listo", tone: "success" }
 }
 
-/** Lo que el asistente puede hacer hoy. Se muestra al lado del estado. */
-export const CAPABILITY_NOTE = "Web · sin acceso al CRM"
+/**
+ * El límite del asistente, al lado del estado.
+ *
+ * Decía "Web · sin acceso al CRM" hasta que se verificó contra el Hermes real
+ * del VPS: el toolset de búsqueda web está apagado por falta de credencial
+ * (`check_web_api_key` da False en el log del gateway, y preguntado
+ * directamente contesta que no la tiene). Anunciar "Web" era afirmar una
+ * capacidad inexistente.
+ *
+ * Se eligió recortar en vez de corregir el texto por una razón de fondo: el
+ * `api_server` de Hermes no expone qué toolsets tiene activos —ni
+ * `/v1/capabilities` ni `/health/detailed` los informan— así que el CRM no
+ * puede verificar una afirmación de capacidad. Lo único que sí sabemos con
+ * certeza es el límite, porque no existen herramientas del CRM en Hermes.
+ *
+ * Volver a nombrar una capacidad exige poder comprobarla, no acordarse de
+ * actualizar esta línea.
+ */
+export const CAPABILITY_NOTE = "Sin acceso a los datos del CRM"
 
 // --------------------------------------------------------- conversaciones
 
