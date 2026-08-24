@@ -12,6 +12,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -47,13 +48,15 @@ export function ProjectStatusControl({
         <ChevronDown className="ml-1 h-4 w-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Cambiar estado</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {STATUSES.filter((s) => s !== currentStatus).map((s) => (
-          <DropdownMenuItem key={s} onClick={() => change(s)}>
-            {PROJECT_STATUS_LABELS[s]}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Cambiar estado</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {STATUSES.filter((s) => s !== currentStatus).map((s) => (
+            <DropdownMenuItem key={s} onClick={() => change(s)}>
+              {PROJECT_STATUS_LABELS[s]}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

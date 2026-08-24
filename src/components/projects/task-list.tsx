@@ -44,6 +44,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -222,16 +223,18 @@ function TaskRow({
               <MessageSquare className="size-4" /> Comentar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Estado</DropdownMenuLabel>
-            {Object.entries(TASK_STATUS_LABELS).map(([status, label]) => (
-              <DropdownMenuItem
-                key={status}
-                disabled={task.status === status}
-                onClick={() => changeStatus(status as Enums<"task_status">)}
-              >
-                {label}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Estado</DropdownMenuLabel>
+              {Object.entries(TASK_STATUS_LABELS).map(([status, label]) => (
+                <DropdownMenuItem
+                  key={status}
+                  disabled={task.status === status}
+                  onClick={() => changeStatus(status as Enums<"task_status">)}
+                >
+                  {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               disabled={!canMoveUp}

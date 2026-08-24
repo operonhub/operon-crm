@@ -15,6 +15,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -79,13 +80,15 @@ export function StageControl({
           <ChevronDown className="ml-1 h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          <DropdownMenuLabel>Cambiar etapa</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {OPPORTUNITY_STAGES.filter((s) => s !== currentStage).map((s) => (
-            <DropdownMenuItem key={s} onClick={() => move(s)}>
-              {STAGE_LABELS[s]}
-            </DropdownMenuItem>
-          ))}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Cambiar etapa</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {OPPORTUNITY_STAGES.filter((s) => s !== currentStage).map((s) => (
+              <DropdownMenuItem key={s} onClick={() => move(s)}>
+                {STAGE_LABELS[s]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
 
