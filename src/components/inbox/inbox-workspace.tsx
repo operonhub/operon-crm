@@ -35,6 +35,7 @@ import type { ActionResult } from "@/lib/action-result"
 import { isConversationUnread } from "@/lib/collaboration"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { SocialInbox, type SocialConversation, type SocialMessage } from "@/components/inbox/social-inbox"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
@@ -161,6 +162,11 @@ export function InboxWorkspace({
   notifications,
   profiles,
   projects,
+  socialConversations,
+  socialMessages,
+  channel,
+  socialConfigured,
+  socialReason,
 }: {
   currentProfileId: string
   tab: "equipo" | "clientes" | "sistema"
@@ -175,6 +181,11 @@ export function InboxWorkspace({
   notifications: Notification[]
   profiles: Profile[]
   projects: Project[]
+  socialConversations: SocialConversation[]
+  socialMessages: SocialMessage[]
+  channel: string
+  socialConfigured: boolean
+  socialReason: string | null
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -258,7 +269,14 @@ export function InboxWorkspace({
       </div>
 
       {tab === "clientes" ? (
-        <FutureClientInbox />
+        <SocialInbox
+          conversations={socialConversations}
+          messages={socialMessages}
+          selectedId={selectedId ?? null}
+          channel={channel}
+          configured={socialConfigured}
+          notConfiguredReason={socialReason}
+        />
       ) : tab === "sistema" ? (
         <SystemNotifications notifications={notifications} pending={pending} run={run} />
       ) : (
@@ -640,16 +658,6 @@ function NewConversationDialog({ open, onOpenChange, profiles, pending, onSubmit
         </form>
       </DialogContent>
     </Dialog>
-  )
-}
-
-function FutureClientInbox() {
-  return (
-    <Card className="flex min-h-[28rem] flex-col items-center justify-center border-dashed p-8 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground"><Inbox className="size-5" /></span>
-      <p className="mt-4 font-heading text-lg font-semibold">Mensajería con clientes, próximamente</p>
-      <p className="mt-2 max-w-lg text-sm text-muted-foreground">Este CRM todavía no conecta WhatsApp, Instagram ni email. Cuando exista una integración real, las conversaciones externas van a vivir acá; hoy no mostramos canales simulados.</p>
-    </Card>
   )
 }
 
