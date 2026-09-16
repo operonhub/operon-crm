@@ -1,5 +1,13 @@
 import type { ZernioConfig } from "./config"
 import {
+  parseContentPayload,
+  parseFollowerStats,
+  parseStoriesPayload,
+  type ContentSnapshot,
+  type FollowerStats,
+  type NormalizedStory,
+} from "./content"
+import {
   normalizeRestConversation,
   normalizeRestMessage,
   parseListPayload,
@@ -374,4 +382,81 @@ export async function sendMessage(
     ok: true,
     data: { messageId: root?.data?.messageId ?? root?.messageId ?? null },
   }
+}
+
+// ------------------------------------------------------------
+// Contenido y métricas
+// ------------------------------------------------------------
+
+/**
+ * Publicaciones con sus métricas.
+ *
+ * `/analytics` sólo lista los posts para los que Zernio ya consiguió insights
+ * de Instagram, que pueden ser bastantes menos que los publicados. Por eso el
+ * snapshot devuelve además `totalPosts`: sin ese número la pantalla mostraría
+ * 3 de 12 publicaciones como si fueran todas.
+ */
+export async function listContent(
+  deps: ZernioDeps,
+  options: { accountId: string; limit?: number }
+): Promise<ZernioResult<ContentSnapshot>> {
+  const response = await zernioRequest(
+    "/analytics",
+    {
+      query: {
+        platform: "instagram",
+        accountId: options.accountId,
+        limit: options.limit ?? 100,
+      },
+    },
+    deps
+  )
+  if (!response.ok) return response
+
+  const snapshot = parseContentPayload(response.data)
+  if (snapshot === null) return describeZernioFailure("malformed")
+
+  return { ok: true, data: snapshot }
+}
+
+/**
+ * Historias activas.
+ *
+ * Instagram sólo expone las de las últimas 24 horas y Zernio no guarda
+ * histórico, así que esta llamada es la única oportunidad de capturarlas. Lo
+ * que no se fotografíe antes de que expiren se pierde para siempre.
+ */
+export async function listStories(
+  deps: ZernioDeps,
+  options: { accountId: string }
+): Promise<ZernioResult<NormalizedStory[]>> {
+  const response = await zernioRequest(
+    `/accounts/${encodeURIComponent(options.accountId)}/instagram/stories`,
+    {},
+    deps
+  )
+  if (!response.ok) return response
+
+  const stories = parseStoriesPayload(response.data)
+  if (stories === null) return describeZernioFailure("malformed")
+
+  return { ok: true, data: stories }
+}
+
+/** Historia de seguidores. Devuelve nulls hasta que el fotógrafo diario corra. */
+export async function getFollowerStats(
+  deps: ZernioDeps,
+  options: { accountId: string }
+): Promise<ZernioResult<FollowerStats>> {
+  const response = await zernioRequest(
+    "/analytics/instagram/follower-history",
+    { query: { accountId: options.accountId } },
+    deps
+  )
+  if (!response.ok) return response
+
+  const stats = parseFollowerStats(response.data)
+  if (stats === null) return describeZernioFailure("malformed")
+
+  return { ok: true, data: stats }
 }

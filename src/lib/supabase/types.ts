@@ -2401,6 +2401,265 @@ export type Database = {
           },
         ]
       }
+      social_posts: {
+        Row: {
+          caption: string | null
+          created_at: string
+          format: string
+          id: string
+          is_ad: boolean
+          media_type: string | null
+          metrics_synced_at: string | null
+          permalink: string | null
+          platform: string
+          published_at: string | null
+          social_account_id: string
+          thumbnail_url: string | null
+          updated_at: string
+          video_duration_seconds: number | null
+          zernio_post_id: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          format?: string
+          id?: string
+          is_ad?: boolean
+          media_type?: string | null
+          metrics_synced_at?: string | null
+          permalink?: string | null
+          platform: string
+          published_at?: string | null
+          social_account_id: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          video_duration_seconds?: number | null
+          zernio_post_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          format?: string
+          id?: string
+          is_ad?: boolean
+          media_type?: string | null
+          metrics_synced_at?: string | null
+          permalink?: string | null
+          platform?: string
+          published_at?: string | null
+          social_account_id?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          video_duration_seconds?: number | null
+          zernio_post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_social_account_id_fkey"
+            columns: ["social_account_id"]
+            isOneToOne: false
+            referencedRelation: "social_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_post_metrics: {
+        Row: {
+          avg_watch_time_ms: number | null
+          captured_at: string
+          captured_on: string
+          comments: number
+          follows: number
+          id: string
+          impressions: number
+          likes: number
+          post_id: string
+          profile_views: number
+          reach: number
+          saves: number
+          shares: number
+          skip_rate: number | null
+          views: number
+        }
+        Insert: {
+          avg_watch_time_ms?: number | null
+          captured_at?: string
+          captured_on?: string
+          comments?: number
+          follows?: number
+          id?: string
+          impressions?: number
+          likes?: number
+          post_id: string
+          profile_views?: number
+          reach?: number
+          saves?: number
+          shares?: number
+          skip_rate?: number | null
+          views?: number
+        }
+        Update: {
+          avg_watch_time_ms?: number | null
+          captured_at?: string
+          captured_on?: string
+          comments?: number
+          follows?: number
+          id?: string
+          impressions?: number
+          likes?: number
+          post_id?: string
+          profile_views?: number
+          reach?: number
+          saves?: number
+          shares?: number
+          skip_rate?: number | null
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_post_metrics_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_stories: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          media_type: string | null
+          permalink: string | null
+          posted_at: string
+          social_account_id: string
+          thumbnail_url: string | null
+          zernio_story_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          media_type?: string | null
+          permalink?: string | null
+          posted_at: string
+          social_account_id: string
+          thumbnail_url?: string | null
+          zernio_story_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          media_type?: string | null
+          permalink?: string | null
+          posted_at?: string
+          social_account_id?: string
+          thumbnail_url?: string | null
+          zernio_story_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_stories_social_account_id_fkey"
+            columns: ["social_account_id"]
+            isOneToOne: false
+            referencedRelation: "social_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_story_metrics: {
+        Row: {
+          captured_at: string
+          exits: number
+          id: string
+          profile_visits: number
+          reach: number
+          replies: number
+          story_id: string
+          taps_back: number
+          taps_forward: number
+          views: number
+        }
+        Insert: {
+          captured_at?: string
+          exits?: number
+          id?: string
+          profile_visits?: number
+          reach?: number
+          replies?: number
+          story_id: string
+          taps_back?: number
+          taps_forward?: number
+          views?: number
+        }
+        Update: {
+          captured_at?: string
+          exits?: number
+          id?: string
+          profile_visits?: number
+          reach?: number
+          replies?: number
+          story_id?: string
+          taps_back?: number
+          taps_forward?: number
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_story_metrics_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "social_stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_follower_stats: {
+        Row: {
+          captured_at: string
+          captured_on: string
+          follower_count: number
+          gained: number | null
+          id: string
+          lost: number | null
+          social_account_id: string
+        }
+        Insert: {
+          captured_at?: string
+          captured_on?: string
+          follower_count: number
+          gained?: number | null
+          id?: string
+          lost?: number | null
+          social_account_id: string
+        }
+        Update: {
+          captured_at?: string
+          captured_on?: string
+          follower_count?: number
+          gained?: number | null
+          id?: string
+          lost?: number | null
+          social_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_follower_stats_social_account_id_fkey"
+            columns: ["social_account_id"]
+            isOneToOne: false
+            referencedRelation: "social_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_sync_state: {
         Row: {
           cursor: string | null
