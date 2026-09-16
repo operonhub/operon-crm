@@ -1,6 +1,11 @@
+import Link from "next/link"
 import { BarChart3, BriefcaseBusiness, CircleDollarSign, FolderKanban } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
+import { CountUp } from "@/components/shell/count-up"
+import { KpiCard } from "@/components/shell/kpi-card"
+import { MoneyPair } from "@/components/shell/money-pair"
+import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ACTIVE_PROJECT_STATUSES,
@@ -15,10 +20,11 @@ import {
   type SupportedCurrency,
 } from "@/lib/constants"
 import { summarizeFinances, type MoneyByCurrency } from "@/lib/finance"
-import { addDaysISO, formatMoney, todayISO } from "@/lib/format"
+import { addDaysISO, todayISO } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { Enums } from "@/lib/supabase/types"
+import { PageTransition } from "@/components/shell/page-transition"
 
 export default async function MetricasPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams
@@ -132,6 +138,7 @@ export default async function MetricasPage({ searchParams }: { searchParams: Pro
   ]
 
   return (
+    <PageTransition>
     <>
       <PageHeader title="Métricas" description="Indicadores reales para decidir, sin integraciones simuladas" />
       <div className="space-y-6 p-4 sm:p-6">
@@ -171,16 +178,7 @@ export default async function MetricasPage({ searchParams }: { searchParams: Pro
             <MetricCard label="Atrasados" value={delayed} danger={delayed > 0} href="/proyectos?status=delayed" />
             <MetricCard label="Tareas bloqueadas" value={blockedTasks} danger={blockedTasks > 0} href="/proyectos?task_status=bloqueada" />
           </div>
-          <Card className="gap-0 p-0">
-            <div className="grid grid-cols-2 lg:grid-cols-4">
-              {PROJECT_AREAS.map((area, index) => (
-                <div key={area} className={`p-4 ${index > 0 ? "border-l" : ""} ${index > 1 ? "border-t lg:border-t-0" : ""}`}>
-                  <p className="text-xs text-muted-foreground">{PROJECT_AREA_LABELS[area]}</p>
-                  <p className="mt-2 font-mono text-xl font-semibold tabular-nums">{projectsByArea[area]}</p>
-                </div>
-              ))}
-            </div>
-          </Card>
+          <AreaBreakdown counts={projectsByArea} />
           <p className="text-sm text-muted-foreground">{pendingTasks} tareas pendientes en todos los proyectos. Entregas a tiempo se habilitará cuando exista una fecha real de entrega completada.</p>
         </MetricSection>
 
@@ -213,6 +211,7 @@ export default async function MetricasPage({ searchParams }: { searchParams: Pro
         </MetricSection>
       </div>
     </>
+    </PageTransition>
   )
 }
 
@@ -228,21 +227,116 @@ function MetricSection({ icon: Icon, title, children }: { icon: React.ElementTyp
 }
 
 function MetricCard({ label, value, detail, danger = false, href }: { label: string; value: string | number; detail?: string; danger?: boolean; href?: string }) {
-  const content = <Card className="h-full gap-0 p-4 transition-colors hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className={`mt-2 font-mono text-xl font-semibold tabular-nums ${danger ? "text-destructive" : ""}`}>{value}</p>{detail && <p className="mt-1 text-xs text-muted-foreground">{detail}</p>}</Card>
-  return href ? <Link href={href}>{content}</Link> : content
+  // Los números cuentan hacia arriba; los textos ("3 activos") se muestran tal cual.
+  return typeof value === "number" ? (
+    <KpiCard label={label} value={value} hint={detail} tone={danger ? "danger" : "default"} href={href} />
+  ) : (
+    <KpiCard label={label} display={value} hint={detail} tone={danger ? "danger" : "default"} href={href} />
+  )
 }
 
 function MoneyCard({ title, totals, danger = false, href }: { title: string; totals: MoneyByCurrency; danger?: boolean; href?: string }) {
-  const content = <Card className="h-full gap-0 p-4 transition-colors hover:border-primary/40"><p className="text-xs text-muted-foreground">{title}</p><div className={`mt-2 space-y-0.5 font-mono text-sm font-semibold tabular-nums ${danger && (totals.ARS > 0 || totals.USD > 0) ? "text-destructive" : ""}`}><p>{formatMoney(totals.ARS, "ARS")}</p><p>{formatMoney(totals.USD, "USD")}</p></div></Card>
-  return href ? <Link href={href}>{content}</Link> : content
+  const alert = danger && (totals.ARS > 0 || totals.USD > 0)
+  return (
+    <KpiCard
+      label={title}
+      tone={alert ? "danger" : "default"}
+      href={href}
+      display={<MoneyPair totals={totals} />}
+    />
+  )
 }
 
 function Distribution({ title, rows }: { title: string; rows: { label: string; value: number; detail?: string }[] }) {
   const max = Math.max(1, ...rows.map((row) => row.value))
-  return <Card><CardHeader className="pb-3"><CardTitle className="text-sm">{title}</CardTitle></CardHeader><CardContent className="space-y-3">{rows.length === 0 ? <p className="text-sm text-muted-foreground">Sin datos.</p> : rows.map((row) => <div key={row.label} className="space-y-1"><div className="flex items-center justify-between gap-3 text-sm"><span>{row.label}</span><span className="text-xs text-muted-foreground">{row.value}{row.detail ? ` · ${row.detail}` : ""}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${(row.value / max) * 100}%` }} /></div></div>)}</CardContent></Card>
+  const total = rows.reduce((sum, row) => sum + row.value, 0)
+  return (
+    <Card className="spotlight">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-baseline justify-between gap-3 text-sm">
+          {title}
+          {total > 0 && (
+            <span className="font-mono text-xs font-normal text-muted-foreground tabular-nums">{total} en total</span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-0.5">
+        {rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sin datos.</p>
+        ) : (
+          rows.map((row, index) => (
+            // La fila entera responde al mouse: la barra se engrosa y aparece qué parte del total es.
+            <div
+              key={row.label}
+              className="group/row -mx-2 space-y-1.5 rounded-lg px-2 py-1.5 transition-colors duration-150 hover:bg-muted/60"
+            >
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span>{row.label}</span>
+                <span className="text-xs text-muted-foreground">
+                  <span className="mr-2 font-mono opacity-0 transition-opacity duration-150 group-hover/row:opacity-100">
+                    {Math.round((row.value / Math.max(1, total)) * 100)}%
+                  </span>
+                  <span className="font-mono font-medium text-foreground tabular-nums">{row.value}</span>
+                  {row.detail ? ` · ${row.detail}` : ""}
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted transition-transform duration-150 group-hover/row:scale-y-[1.6]">
+                <div
+                  className="chart-grow-x h-full rounded-full bg-primary"
+                  style={{ width: `${(row.value / max) * 100}%`, animationDelay: `${Math.min(index * 70, 420)}ms` }}
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+const AREA_BAR: Record<ProjectArea, string> = {
+  sites_ecommerce: "bg-primary",
+  apps_saas: "bg-primary/55",
+  automations_crm: "bg-warning",
+  assets_brand: "bg-foreground/35",
+}
+
+/** Proyectos activos por área: número que cuenta y barra relativa al área más cargada. */
+function AreaBreakdown({ counts }: { counts: Record<ProjectArea, number> }) {
+  const max = Math.max(1, ...Object.values(counts))
+  return (
+    <Card className="spotlight gap-0 p-0">
+      <div className="grid grid-cols-2 lg:grid-cols-4">
+        {PROJECT_AREAS.map((area, index) => (
+          <Link
+            key={area}
+            href={`/proyectos#area-${area}`}
+            className={cn(
+              "group/area block p-4 transition-colors duration-150 hover:bg-muted/40",
+              index % 2 === 1 && "border-l",
+              index === 2 && "lg:border-l",
+              index > 1 && "border-t lg:border-t-0"
+            )}
+          >
+            <p className="text-xs text-muted-foreground transition-colors duration-150 group-hover/area:text-foreground">
+              {PROJECT_AREA_LABELS[area]}
+            </p>
+            <p className="mt-2 font-mono text-xl font-semibold tabular-nums">
+              <CountUp value={counts[area]} />
+            </p>
+            <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn("chart-grow-x h-full rounded-full", AREA_BAR[area])}
+                style={{ width: `${(counts[area] / max) * 100}%`, animationDelay: `${120 + index * 80}ms` }}
+              />
+            </div>
+          </Link>
+        ))}
+      </div>
+    </Card>
+  )
 }
 
 function FilterLabel({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="space-y-1.5"><span className="label-mono text-muted-foreground">{label}</span>{children}</label>
 }
-import Link from "next/link"

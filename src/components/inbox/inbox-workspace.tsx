@@ -36,6 +36,8 @@ import { isConversationUnread } from "@/lib/collaboration"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { SocialInbox, type SocialConversation, type SocialMessage } from "@/components/inbox/social-inbox"
+import { PageHero } from "@/components/shell/page-hero"
+import { UrlTabs } from "@/components/shell/url-tabs"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
@@ -168,9 +170,10 @@ export function InboxWorkspace({
   socialConfigured,
   socialReason,
   isAdmin,
+  explicitSelection,
 }: {
   currentProfileId: string
-  tab: "equipo" | "clientes" | "sistema"
+  tab: "chats" | "equipo" | "sistema"
   statusFilter: string
   assignedFilter: string
   conversations: Conversation[]
@@ -188,6 +191,7 @@ export function InboxWorkspace({
   socialConfigured: boolean
   socialReason: string | null
   isAdmin: boolean
+  explicitSelection: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -242,35 +246,32 @@ export function InboxWorkspace({
   }, [currentProfileId, router, selected])
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-6">
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="label-mono text-primary">Comunicación y sistemas</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em]">Bandeja</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Conversaciones internas, traspasos, revisiones y notificaciones reales.
-          </p>
-        </div>
-        {tab === "equipo" && (
+    <>
+    <PageHero
+      eyebrow="Comunicación y sistemas"
+      title="Bandeja"
+      description="Chats de WhatsApp e Instagram, conversaciones del equipo y avisos del sistema."
+      actions={
+        tab === "equipo" ? (
           <Button onClick={() => setNewOpen(true)}>
             <Plus className="mr-1 size-4" /> Nuevo mensaje
           </Button>
-        )}
-      </div>
+        ) : undefined
+      }
+    />
+    <div className="mx-auto w-full max-w-[1600px] px-4 pt-5 pb-6 sm:px-6">
+      <UrlTabs
+        id="bandeja"
+        className="mb-4"
+        active={tab}
+        tabs={[
+          { value: "chats", label: "Chats", href: "/bandeja?tab=chats", icon: <Inbox className="size-4" /> },
+          { value: "equipo", label: "Equipo", href: "/bandeja?tab=equipo", icon: <MessageSquare className="size-4" /> },
+          { value: "sistema", label: "Sistema", href: "/bandeja?tab=sistema", icon: <Bell className="size-4" /> },
+        ]}
+      />
 
-      <div className="mb-4 flex w-full gap-1 overflow-x-auto rounded-xl border bg-card p-1 sm:w-fit">
-        <TabLink active={tab === "equipo"} href="/bandeja?tab=equipo" icon={MessageSquare}>
-          Equipo
-        </TabLink>
-        <TabLink active={tab === "clientes"} href="/bandeja?tab=clientes" icon={Inbox}>
-          Clientes
-        </TabLink>
-        <TabLink active={tab === "sistema"} href="/bandeja?tab=sistema" icon={Bell}>
-          Sistema
-        </TabLink>
-      </div>
-
-      {tab === "clientes" ? (
+      {tab === "chats" ? (
         <SocialInbox
           conversations={socialConversations}
           messages={socialMessages}
@@ -279,6 +280,7 @@ export function InboxWorkspace({
           configured={socialConfigured}
           notConfiguredReason={socialReason}
           isAdmin={isAdmin}
+          explicitSelection={explicitSelection}
         />
       ) : tab === "sistema" ? (
         <SystemNotifications notifications={notifications} pending={pending} run={run} />
@@ -404,30 +406,7 @@ export function InboxWorkspace({
         }
       />
     </div>
-  )
-}
-
-function TabLink({
-  active,
-  href,
-  icon: Icon,
-  children,
-}: {
-  active: boolean
-  href: string
-  icon: React.ElementType
-  children: React.ReactNode
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "inline-flex min-w-max items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-      )}
-    >
-      <Icon className="size-4" /> {children}
-    </Link>
+    </>
   )
 }
 
@@ -673,7 +652,8 @@ function SystemNotifications({ notifications, pending, run }: { notifications: N
         <div key={notification.id} className={cn("flex items-start gap-3 px-4 py-4", index > 0 && "border-t", !notification.read_at && "bg-accent/35")}>
           <Bell className={cn("mt-0.5 size-4 shrink-0", notification.read_at ? "text-muted-foreground" : "text-primary")} />
           <div className="min-w-0 flex-1"><p className="text-sm font-medium">{notification.title}</p>{notification.body && <p className="mt-1 text-sm text-muted-foreground">{notification.body}</p>}<p className="label-mono mt-2 text-muted-foreground">{notification.actor?.full_name ?? "Sistema"} · {timeLabel(notification.created_at)}</p></div>
-          <div className="flex shrink-0 gap-1">{notification.href && <Button variant="ghost" size="icon-sm" render={<Link href={notification.href} aria-label="Abrir notificación" />}><ArrowRight className="size-4" /></Button>}<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={notification.read_at ? "Marcar no leída" : "Marcar leída"} onClick={() => run(markNotificationRead(notification.id, !notification.read_at))}><Check className="size-4" /></Button></div>
+          <div className="flex shrink-0 gap-1">{notification.href && <Button variant="ghost" size="icon-sm" nativeButton={false}
+                    render={<Link href={notification.href} aria-label="Abrir notificación" />}><ArrowRight className="size-4" /></Button>}<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={notification.read_at ? "Marcar no leída" : "Marcar leída"} onClick={() => run(markNotificationRead(notification.id, !notification.read_at))}><Check className="size-4" /></Button></div>
         </div>
       ))}
     </Card>

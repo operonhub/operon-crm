@@ -37,7 +37,9 @@ import {
 import { formatDate, formatMoney, todayISO } from "@/lib/format"
 import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
+import { ENTER_UP } from "@/lib/motion"
 import { cn } from "@/lib/utils"
+import { PageTransition } from "@/components/shell/page-transition"
 
 const TABS = [
   ["resumen", "Resumen", FileText],
@@ -205,6 +207,7 @@ export default async function ClientDetailPage({
   }
 
   return (
+    <PageTransition>
     <div className="mx-auto w-full max-w-[1500px] p-4 sm:p-6">
       <Link
         href="/clientes"
@@ -212,10 +215,10 @@ export default async function ClientDetailPage({
       >
         <ArrowLeft className="size-3" /> Volver a clientes
       </Link>
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className={cn(ENTER_UP, "mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between")}>
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-3xl font-semibold tracking-[-0.035em]">
+            <h1 className="text-[clamp(1.75rem,3.2vw,2.5rem)] leading-[1.02] font-semibold tracking-[-0.04em]">
               {organization.name}
             </h1>
             <Badge variant="secondary">
@@ -306,6 +309,7 @@ export default async function ClientDetailPage({
         )}
       </div>
     </div>
+    </PageTransition>
   )
 }
 

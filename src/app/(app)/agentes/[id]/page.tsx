@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import { AgentDetailWorkspace } from "@/components/agents/agent-detail-workspace"
 import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
+import { PageTransition } from "@/components/shell/page-transition"
 
 export default async function AgentDetailPage({
   params,
@@ -55,6 +56,7 @@ export default async function AgentDetailPage({
   if (agentRes.error || !agentRes.data) notFound()
 
   return (
+    <PageTransition>
     <AgentDetailWorkspace
       agent={agentRes.data}
       runs={runsRes.data ?? []}
@@ -65,5 +67,6 @@ export default async function AgentDetailPage({
       isAdmin={currentProfileRes.data?.role === "admin"}
       tab={tab ?? "resumen"}
     />
+    </PageTransition>
   )
 }

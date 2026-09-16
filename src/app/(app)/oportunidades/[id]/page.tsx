@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { SERVICE_TYPE_LABELS } from "@/lib/constants"
 import { formatDate, formatMoney, isOverdue } from "@/lib/format"
+import { PageTransition } from "@/components/shell/page-transition"
 
 export default async function OpportunityDetailPage({
   params,
@@ -53,10 +54,12 @@ export default async function OpportunityDetailPage({
     .maybeSingle()
 
   return (
+    <PageTransition>
     <>
       <PageHeader title={opp.title}>
         {project ? (
-          <Button variant="outline" render={<Link href={`/proyectos/${project.id}`} />}>
+          <Button variant="outline" nativeButton={false}
+                    render={<Link href={`/proyectos/${project.id}`} />}>
             <FolderKanban className="mr-1 h-4 w-4" />
             Ver proyecto
           </Button>
@@ -205,6 +208,7 @@ export default async function OpportunityDetailPage({
         </div>
       </div>
     </>
+    </PageTransition>
   )
 }
 

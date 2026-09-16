@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, ViewTransition } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -57,6 +57,11 @@ const PRODUCT_NAV: NavItem[] = [
   { href: "/finanzas", label: "Finanzas", icon: WalletCards },
 ]
 
+// Reels y Meta Ads se suman acá en las fases C y D.
+const MARKETING_NAV: NavItem[] = [
+  { href: "/redes", label: "Redes sociales", icon: Share2 },
+]
+
 function isActive(pathname: string, item: NavItem) {
   if (item.href === "/") return pathname === "/"
   return [item.href, ...(item.aliases ?? [])].some((path) =>
@@ -92,25 +97,36 @@ function NavGroup({
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150",
                 "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                 active
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "text-primary-foreground"
                   : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
               )}
             >
+              {/*
+                La pastilla del ítem activo es un solo elemento con nombre: al
+                navegar, React la desliza del ítem anterior al nuevo en vez de
+                apagar uno y prender otro. Es lo que más se usa en el día, así
+                que dura poco (ver .tab-indicator en globals.css).
+              */}
+              {active && (
+                <ViewTransition name="sidebar-active" share="tab-indicator" default="none">
+                  <span aria-hidden="true" className="absolute inset-0 rounded-lg bg-primary shadow-sm" />
+                </ViewTransition>
+              )}
               <Icon
                 className={cn(
-                  "size-4 shrink-0 transition-transform",
+                  "relative size-4 shrink-0 transition-transform",
                   !active && "group-hover:scale-110"
                 )}
                 aria-hidden="true"
               />
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              <span className="relative min-w-0 flex-1 truncate">{item.label}</span>
               {!!item.badge && (
                 <span
                   className={cn(
-                    "label-mono min-w-5 rounded-full px-1.5 py-0.5 text-center",
+                    "label-mono relative min-w-5 rounded-full px-1.5 py-0.5 text-center",
                     active
                       ? "bg-primary-foreground/20 text-primary-foreground"
                       : "bg-warning/25 text-foreground"
@@ -143,7 +159,6 @@ function SidebarNav({
 }) {
   const communicationNav: NavItem[] = [
     { href: "/bandeja", label: "Bandeja", icon: Inbox, badge: unreadCount },
-    { href: "/redes", label: "Redes sociales", icon: Share2 },
     { href: "/agentes", label: "Agentes", icon: Bot },
     { href: "/ajustes/conexiones", label: "Conexiones", icon: Plug },
   ]
@@ -162,6 +177,7 @@ function SidebarNav({
 
       <nav className="flex-1 space-y-6 overflow-y-auto p-3">
         <NavGroup items={PRODUCT_NAV} onNavigate={onNavigate} />
+        <NavGroup label="Marketing" items={MARKETING_NAV} onNavigate={onNavigate} />
         <NavGroup
           label="Comunicación y sistemas"
           items={communicationNav}

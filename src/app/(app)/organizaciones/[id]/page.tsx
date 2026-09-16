@@ -8,6 +8,7 @@ import { LeadStatusBadge, SourceBadge } from "@/components/lead-badges"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatMoney } from "@/lib/format"
+import { PageTransition } from "@/components/shell/page-transition"
 
 export default async function OrganizationDetailPage({
   params,
@@ -53,6 +54,7 @@ export default async function OrganizationDetailPage({
     ])
 
   return (
+    <PageTransition>
     <>
       <PageHeader
         title={org.name}
@@ -193,6 +195,7 @@ export default async function OrganizationDetailPage({
         </div>
       </div>
     </>
+    </PageTransition>
   )
 }
 

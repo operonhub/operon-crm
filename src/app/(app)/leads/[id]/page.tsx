@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SERVICE_TYPE_LABELS } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
+import { PageTransition } from "@/components/shell/page-transition"
 
 export default async function LeadDetailPage({
   params,
@@ -44,12 +45,14 @@ export default async function LeadDetailPage({
     : (lead.organization?.name ?? "Nueva oportunidad")
 
   return (
+    <PageTransition>
     <>
       <PageHeader title={lead.organization?.name ?? "Lead"}>
         {opp ? (
           <Button
             variant="outline"
-            render={<Link href={`/oportunidades/${opp.id}`} />}
+            nativeButton={false}
+                    render={<Link href={`/oportunidades/${opp.id}`} />}
           >
             <Target className="mr-1 h-4 w-4" />
             Ver oportunidad
@@ -140,6 +143,7 @@ export default async function LeadDetailPage({
         </Card>
       </div>
     </>
+    </PageTransition>
   )
 }
 

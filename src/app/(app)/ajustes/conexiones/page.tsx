@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
-import { AtSign, CircleAlert, CircleCheck, MessageCircle, Plug, Workflow } from "lucide-react"
+import { CircleAlert, CircleCheck, Plug, Workflow } from "lucide-react"
+import { PlatformIcon } from "@/components/brand/social-icons"
 import { PageHeader } from "@/components/page-header"
 import { SyncAccountsButton } from "@/components/settings/sync-accounts-button"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +11,7 @@ import { createClient } from "@/lib/supabase/server"
 import { maskApiKey, readZernioConfig, readZernioWebhookConfig } from "@/lib/zernio/config"
 import { platformLabel } from "@/lib/zernio/types"
 import { cn } from "@/lib/utils"
+import { PageTransition } from "@/components/shell/page-transition"
 
 /**
  * Conexiones — estado real de las integraciones externas.
@@ -127,6 +129,7 @@ export default async function ConnectionsPage() {
   const ingestConfigured = Boolean(process.env.N8N_INGEST_SECRET)
 
   return (
+    <PageTransition>
     <>
       <PageHeader
         title="Conexiones"
@@ -193,11 +196,7 @@ export default async function ConnectionsPage() {
               <ul className="divide-y">
                 {accounts.map((account) => (
                   <li key={account.id} className="flex items-center gap-3 px-3 py-2.5">
-                    {account.platform === "instagram" ? (
-                      <AtSign className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    ) : (
-                      <MessageCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    )}
+                    <PlatformIcon platform={account.platform} colored className="size-5" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {account.display_name ?? account.username ?? "Sin nombre"}
@@ -266,5 +265,6 @@ export default async function ConnectionsPage() {
         </Integration>
       </div>
     </>
+    </PageTransition>
   )
 }

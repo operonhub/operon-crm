@@ -1,6 +1,10 @@
-import Link from "next/link"
 import { redirect } from "next/navigation"
-import { ArrowUpRight, Clapperboard, ImageIcon, Images, TriangleAlert } from "lucide-react"
+import { ArrowUpRight, Clapperboard, Eye, Heart, ImageIcon, Images, TriangleAlert } from "lucide-react"
+import { InstagramIcon } from "@/components/brand/social-icons"
+import { EmptyState } from "@/components/shell/empty-state"
+import { KpiCard } from "@/components/shell/kpi-card"
+import { PageHero } from "@/components/shell/page-hero"
+import { UrlTabs } from "@/components/shell/url-tabs"
 import { SyncContentButton } from "@/components/social/sync-content-button"
 import { Sparkline, MeterRow } from "@/components/charts/sparkline"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +24,7 @@ import {
 } from "@/lib/social/metrics"
 import { readZernioConfig } from "@/lib/zernio/config"
 import { cn } from "@/lib/utils"
+import { PageTransition } from "@/components/shell/page-transition"
 
 /**
  * Redes sociales — qué se publicó y cómo rindió.
@@ -53,32 +58,6 @@ function fecha(value: string | null): string {
 function FormatIcon({ format }: { format: string }) {
   const Icon = format === "reel" ? Clapperboard : format === "story" ? Images : ImageIcon
   return <Icon className="size-3.5" aria-hidden="true" />
-}
-
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="label-mono text-muted-foreground">{label}</p>
-        <p className="mt-1 font-mono text-2xl tabular-nums">{value}</p>
-        {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
-  )
-}
-
-function TabLink({ active, href, children }: { active: boolean; href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "inline-flex min-w-max items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-      )}
-    >
-      {children}
-    </Link>
-  )
 }
 
 export default async function RedesPage({
@@ -203,57 +182,57 @@ export default async function RedesPage({
     formato === "todos" ? posts : posts.filter((post) => post.format === formato)
 
   return (
+    <PageTransition>
+    <>
+    <PageHero
+      tone="featured"
+      eyebrow="Marketing"
+      title={
+        <span className="inline-flex items-center gap-3">
+          <InstagramIcon className="size-[0.8em]" />
+          Redes sociales
+        </span>
+      }
+      description="Lo que publicó Operon en Instagram y cómo rindió. Los datos se sincronizan: la pantalla nunca consulta a Instagram en vivo."
+      actions={isAdmin && zernio.configured ? <SyncContentButton /> : undefined}
+    />
     <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-6">
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="label-mono text-primary">Comunicación y sistemas</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em]">Redes sociales</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Lo que publicó Operon en Instagram y cómo rindió. Los datos se sincronizan; la
-            pantalla nunca consulta a Instagram en vivo.
-          </p>
-        </div>
-        {isAdmin && zernio.configured && <SyncContentButton />}
-      </div>
 
       {faltaMigracion ? (
-        <Card className="flex min-h-80 flex-col items-center justify-center border-dashed p-8 text-center">
-          <TriangleAlert className="size-8 text-warning" aria-hidden="true" />
-          <p className="mt-4 font-heading text-lg font-semibold">
-            Falta aplicar la migración del contenido
-          </p>
-          <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-            Las tablas de publicaciones y métricas todavía no existen en la base. Aplicá la
-            migración <code className="font-mono">0016_social_content.sql</code> desde el SQL
-            Editor de Supabase y volvé a esta pantalla.
-          </p>
-        </Card>
+        <EmptyState
+          icon={<TriangleAlert />}
+          title="Falta aplicar la migración del contenido"
+          description={
+            <>
+              Las tablas de publicaciones y métricas todavía no existen en la base. Aplicá la
+              migración <code className="font-mono">0016_social_content.sql</code> desde el SQL
+              Editor de Supabase y volvé a esta pantalla.
+            </>
+          }
+        />
       ) : !zernio.configured ? (
-        <Card className="flex min-h-80 flex-col items-center justify-center border-dashed p-8 text-center">
-          <p className="font-heading text-lg font-semibold">Falta conectar Instagram</p>
-          <p className="mt-2 max-w-lg text-sm text-muted-foreground">{zernio.reason}</p>
-        </Card>
+        <EmptyState icon={<InstagramIcon />} title="Falta conectar Instagram" description={zernio.reason} />
       ) : (
         <>
-          <div className="mb-4 flex w-full gap-1 overflow-x-auto rounded-xl border bg-card p-1 sm:w-fit">
-            {TABS.map(([value, label]) => (
-              <TabLink key={value} active={tab === value} href={`/redes?tab=${value}`}>
-                {label}
-              </TabLink>
-            ))}
-          </div>
+          <UrlTabs
+            id="redes"
+            className="mb-4"
+            active={tab}
+            tabs={TABS.map(([value, label]) => ({ value, label, href: `/redes?tab=${value}` }))}
+          />
 
           {posts.length === 0 && (
-            <Card className="mb-4 border-dashed">
-              <CardContent className="p-6 text-center">
-                <p className="font-heading font-semibold">Todavía no hay contenido sincronizado</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {isAdmin
-                    ? "Tocá «Sincronizar contenido» para traer las publicaciones de Instagram."
-                    : "Un admin tiene que sincronizar el contenido desde esta pantalla."}
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState
+              size="sm"
+              className="mb-4"
+              icon={<InstagramIcon />}
+              title="Todavía no hay contenido sincronizado"
+              description={
+                isAdmin
+                  ? "Tocá «Sincronizar contenido» para traer las publicaciones de Instagram."
+                  : "Un admin tiene que sincronizar el contenido desde esta pantalla."
+              }
+            />
           )}
 
           {sinMetricas > 0 && (
@@ -271,24 +250,23 @@ export default async function RedesPage({
 
           {tab === "contenido" ? (
             <>
-              <div className="mb-4 flex w-full gap-1 overflow-x-auto rounded-xl border bg-card p-1 sm:w-fit">
-                {FORMATOS.map(([value, label]) => (
-                  <TabLink
-                    key={value}
-                    active={formato === value}
-                    href={`/redes?tab=contenido&formato=${value}`}
-                  >
-                    {label}
-                    <span className="label-mono opacity-60">
-                      {value === "todos"
-                        ? posts.length
-                        : value === "story"
-                          ? stories.length
-                          : posts.filter((p) => p.format === value).length}
-                    </span>
-                  </TabLink>
-                ))}
-              </div>
+              <UrlTabs
+                id="redes-formato"
+                size="sm"
+                className="mb-4"
+                active={formato}
+                tabs={FORMATOS.map(([value, label]) => ({
+                  value,
+                  label,
+                  href: `/redes?tab=contenido&formato=${value}`,
+                  count:
+                    value === "todos"
+                      ? posts.length
+                      : value === "story"
+                        ? stories.length
+                        : posts.filter((p) => p.format === value).length,
+                }))}
+              />
 
               {formato === "story" ? (
                 <StoriesGrid stories={stories} />
@@ -299,17 +277,16 @@ export default async function RedesPage({
           ) : (
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Kpi
-                  label="Publicaciones"
-                  value={num(resumen.posts)}
-                  hint={`${resumen.reels} reels`}
-                />
-                <Kpi label="Alcance" value={num(resumen.reach)} hint="personas distintas" />
-                <Kpi label="Vistas" value={num(resumen.views)} />
-                <Kpi
+                <KpiCard index={0} label="Publicaciones" value={resumen.posts} hint={`${resumen.reels} reels`} icon={<ImageIcon />} />
+                <KpiCard index={1} label="Alcance" value={resumen.reach} hint="personas distintas" tone="primary" icon={<Eye />} />
+                <KpiCard index={2} label="Vistas" value={resumen.views} icon={<Clapperboard />} />
+                <KpiCard
+                  index={3}
                   label="Interacciones / alcance"
-                  value={pct(resumen.engagementRate)}
+                  value={resumen.engagementRate}
+                  format={{ kind: "percent", decimals: 1 }}
                   hint={`${num(resumen.interactions)} interacciones`}
+                  icon={<Heart />}
                 />
               </div>
 
@@ -420,6 +397,8 @@ export default async function RedesPage({
         </>
       )}
     </div>
+    </>
+    </PageTransition>
   )
 }
 

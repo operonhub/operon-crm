@@ -18,6 +18,7 @@ import { SERVICE_TYPE_LABELS } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 import type { Enums } from "@/lib/supabase/types"
 import { PipelineTabs } from "@/components/pipeline/pipeline-tabs"
+import { PageTransition } from "@/components/shell/page-transition"
 
 type SearchParams = Promise<{ q?: string; status?: string; source?: string }>
 
@@ -57,6 +58,7 @@ export default async function LeadsPage({
   })
 
   return (
+    <PageTransition>
     <>
       <PageHeader title="Pipeline" description={`${leads.length} lead${leads.length === 1 ? "" : "s"} en la bandeja de entrada`}>
         <PipelineTabs />
@@ -133,5 +135,6 @@ export default async function LeadsPage({
         </div>
       </div>
     </>
+    </PageTransition>
   )
 }

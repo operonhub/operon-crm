@@ -16,6 +16,7 @@ import { DashboardAgenda } from "@/components/dashboard/dashboard-agenda"
 import { ActiveClients } from "@/components/dashboard/active-clients"
 import { Section } from "@/components/dashboard/section"
 import { DailyTeamUpdate } from "@/components/dashboard/daily-team-update"
+import { PageTransition } from "@/components/shell/page-transition"
 
 /** Cuánto se muestra en el panel antes de mandar a la sección completa. */
 const PROJECTS_LIMIT = 5
@@ -53,6 +54,7 @@ export default async function DashboardPage({
   const scopeSuffix = mine ? "de tu trabajo" : "de todo el equipo"
 
   return (
+    <PageTransition>
     <>
       <DashboardHeader
         fullName={profile?.full_name || user.email || "equipo"}
@@ -129,5 +131,6 @@ export default async function DashboardPage({
         </div>
       </div>
     </>
+    </PageTransition>
   )
 }

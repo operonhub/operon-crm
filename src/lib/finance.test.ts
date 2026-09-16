@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  receivableHealth,
   financialBalance,
   financialStatus,
   summarizeFinances,
@@ -85,5 +86,37 @@ describe("summarizeFinances", () => {
     expect(summary.overdue).toEqual({ ARS: 0, USD: 200 })
     expect(summary.collectedThisMonth).toEqual({ ARS: 0, USD: 300 })
     expect(summary.expensesThisMonth).toEqual({ ARS: 400, USD: 0 })
+  })
+})
+
+describe("receivableHealth", () => {
+  const resumen = (pending: number, overdue: number, collected = 0, expenses = 0) => ({
+    pending: { ARS: pending, USD: 0 },
+    overdue: { ARS: overdue, USD: 0 },
+    collectedThisMonth: { ARS: collected, USD: 0 },
+    expensesThisMonth: { ARS: expenses, USD: 0 },
+  })
+
+  it("calcula qué parte de lo adeudado está vencida", () => {
+    const salud = receivableHealth(resumen(750_000, 250_000), "ARS")
+    expect(salud.owed).toBe(1_000_000)
+    expect(salud.overduePct).toBe(25)
+  })
+
+  it("no redondea a cero una deuda vencida chica", () => {
+    expect(receivableHealth(resumen(1_000_000, 2_000), "ARS").overduePct).toBe(1)
+  })
+
+  it("sin deuda no inventa un porcentaje", () => {
+    expect(receivableHealth(resumen(0, 0), "ARS").overduePct).toBeNull()
+    expect(receivableHealth(resumen(0, 0), "USD").owed).toBe(0)
+  })
+
+  it("el neto del mes puede ser negativo", () => {
+    expect(receivableHealth(resumen(0, 0, 100_000, 180_000), "ARS").netThisMonth).toBe(-80_000)
+  })
+
+  it("no mezcla monedas", () => {
+    expect(receivableHealth(resumen(500, 500), "USD").owed).toBe(0)
   })
 })

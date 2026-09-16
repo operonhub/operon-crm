@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header"
 import { KanbanBoard, type OppCard } from "@/components/opportunities/kanban-board"
 import { NewOpportunityDialog } from "@/components/opportunities/new-opportunity-dialog"
 import { PipelineTabs } from "@/components/pipeline/pipeline-tabs"
+import { PageTransition } from "@/components/shell/page-transition"
 
 export default async function PipelinePage() {
   const supabase = await createClient()
@@ -64,6 +65,7 @@ export default async function PipelinePage() {
   )
 
   return (
+    <PageTransition>
     <>
       <PageHeader
         title="Pipeline"
@@ -76,6 +78,7 @@ export default async function PipelinePage() {
         <KanbanBoard opportunities={opportunities} />
       </div>
     </>
+    </PageTransition>
   )
 }
 

@@ -3,6 +3,7 @@ import { InboxWorkspace } from "@/components/inbox/inbox-workspace"
 import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { readZernioConfig } from "@/lib/zernio/config"
+import { PageTransition } from "@/components/shell/page-transition"
 
 const EMPTY = { data: [] as never[] }
 
@@ -21,8 +22,15 @@ export default async function InboxPage({
   const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
   if (!user) redirect("/login")
 
+  /**
+   * Chats (WhatsApp e Instagram) es la pestaña principal: es donde escriben los
+   * clientes. `clientes` era su nombre anterior y se acepta como alias para no
+   * romper links guardados. Equipo y Sistema siempre llegan con `tab` explícito.
+   */
   const tab =
-    params.tab === "clientes" || params.tab === "sistema" ? params.tab : "equipo"
+    params.tab === "equipo" || params.tab === "sistema"
+      ? params.tab
+      : "chats"
   const channel =
     params.canal === "whatsapp" || params.canal === "instagram" ? params.canal : "todos"
 
@@ -69,7 +77,7 @@ export default async function InboxPage({
             .order("created_at", { ascending: false })
             .limit(100)
         : EMPTY,
-      tab === "clientes"
+      tab === "chats"
         ? supabase
             .from("social_conversations")
             .select(
@@ -86,7 +94,7 @@ export default async function InboxPage({
             .order("last_message_at", { ascending: false, nullsFirst: false })
             .limit(200)
         : EMPTY,
-      tab === "clientes"
+      tab === "chats"
         ? supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
         : Promise.resolve({ data: null }),
     ])
@@ -97,7 +105,7 @@ export default async function InboxPage({
 
   // El id seleccionado se resuelve contra la lista de la pestaña activa: cada
   // una tiene sus propias conversaciones y sus propios ids.
-  const pool: { id: string }[] = tab === "clientes" ? socialConversations : conversations
+  const pool: { id: string }[] = tab === "chats" ? socialConversations : conversations
   const selectedId =
     params.conversation && pool.some((item) => item.id === params.conversation)
       ? params.conversation
@@ -134,19 +142,22 @@ export default async function InboxPage({
             .eq("conversation_id", selectedId)
             .order("created_at", { ascending: false })
         : EMPTY,
-      selectedId && tab === "clientes"
+      selectedId && tab === "chats"
         ? supabase
             .from("social_messages")
             .select(
               "id, direction, body, attachments, delivery_status, sent_at, deleted_at, sender:profiles!social_messages_sent_by_fkey(full_name)"
             )
             .eq("conversation_id", selectedId)
-            .order("sent_at")
+            // Los 300 MÁS NUEVOS. Ordenar ascendente y cortar en 300 traía los
+            // más viejos: en un chat largo desaparecían justo los últimos.
+            .order("sent_at", { ascending: false })
             .limit(300)
         : EMPTY,
     ])
 
   return (
+    <PageTransition>
     <InboxWorkspace
       currentProfileId={user.id}
       tab={tab}
@@ -162,11 +173,13 @@ export default async function InboxPage({
       profiles={profilesRes.data ?? []}
       projects={projectsRes.data ?? []}
       socialConversations={socialConversations}
-      socialMessages={socialMessagesRes.data ?? []}
+      socialMessages={[...(socialMessagesRes.data ?? [])].reverse()}
       channel={channel}
       socialConfigured={zernio.configured}
       socialReason={zernio.configured ? null : zernio.reason}
       isAdmin={roleRes.data?.role === "admin"}
+      explicitSelection={Boolean(params.conversation) && params.conversation === selectedId}
     />
+    </PageTransition>
   )
 }

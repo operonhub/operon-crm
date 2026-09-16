@@ -26,6 +26,8 @@ import {
 } from "@/app/(app)/agentes/actions"
 import type { ActionResult } from "@/lib/action-result"
 import { deriveAgentMetrics } from "@/lib/agents"
+import { ENTER_UP } from "@/lib/motion"
+import { KpiCard } from "@/components/shell/kpi-card"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -157,11 +159,11 @@ export function AgentDetailWorkspace({
       <Link href="/agentes" className="label-mono inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-3" /> Volver a agentes
       </Link>
-      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className={cn(ENTER_UP, "mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between")}>
         <div className="flex items-start gap-4">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Bot className="size-6" /></span>
           <div>
-            <div className="flex flex-wrap items-center gap-2"><h1 className="text-3xl font-semibold tracking-[-0.035em]">{agent.name}</h1><Badge variant="outline">{agent.status}</Badge></div>
+            <div className="flex flex-wrap items-center gap-2"><h1 className="text-[clamp(1.75rem,3.2vw,2.5rem)] leading-[1.02] font-semibold tracking-[-0.04em]">{agent.name}</h1><Badge variant="outline">{agent.status}</Badge></div>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{agent.description || agent.purpose || "Sin descripción"}</p>
             <p className="label-mono mt-2 text-muted-foreground">Responsable: {agent.owner?.full_name ?? "Sin asignar"} · {agent.slug}</p>
           </div>
@@ -232,7 +234,7 @@ function AgentSummary({ agent, metrics, projects }: { agent: Agent; metrics: Ret
 }
 
 function MetricCard({ label, value, icon: Icon }: { label: string; value: string; icon: React.ElementType }) {
-  return <Card className="gap-0 p-5"><div className="flex items-center justify-between"><p className="label-mono text-muted-foreground">{label}</p><Icon className="size-4 text-primary" /></div><p className="mt-4 font-mono text-3xl font-semibold tabular-nums">{value}</p></Card>
+  return <KpiCard label={label} display={value} icon={<Icon />} tone="primary" />
 }
 
 function PolicyList({ title, items, destructive = false }: { title: string; items: string[]; destructive?: boolean }) {

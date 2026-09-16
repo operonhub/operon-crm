@@ -5,6 +5,7 @@ import {
   CircleDollarSign,
   FolderKanban,
 } from "lucide-react"
+import { CountUp } from "@/components/shell/count-up"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatMoney } from "@/lib/format"
 import { ENTER_UP, stagger } from "@/lib/motion"
@@ -23,6 +24,7 @@ export function DashboardSummary({
       key: "proyectos",
       label: "Proyectos activos",
       value: String(summary.activeProjects),
+      count: summary.activeProjects,
       caption: "En ejecución",
       icon: FolderKanban,
       href: "/proyectos",
@@ -32,6 +34,7 @@ export function DashboardSummary({
       key: "clientes",
       label: "Clientes activos",
       value: String(summary.activeClients),
+      count: summary.activeClients,
       caption: "Con operación abierta",
       icon: Building2,
       href: "#clientes",
@@ -41,6 +44,7 @@ export function DashboardSummary({
       key: "hoy",
       label: "Tareas para hoy",
       value: String(summary.tasksToday),
+      count: summary.tasksToday,
       caption: summary.needsAttention
         ? `${summary.needsAttention} requieren atención`
         : "Jornada despejada",
@@ -95,7 +99,7 @@ export function DashboardSummary({
                 </span>
               </div>
               <p className="mt-3 font-mono text-[clamp(1.45rem,3vw,2rem)] leading-none font-semibold tracking-tight tabular-nums">
-                {stat.value}
+                {"count" in stat ? <CountUp value={stat.count} /> : stat.value}
               </p>
               {"secondaryValue" in stat && (
                 <p className="mt-1 font-mono text-sm font-medium text-muted-foreground tabular-nums">
