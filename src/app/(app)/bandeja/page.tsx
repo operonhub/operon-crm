@@ -22,8 +22,15 @@ export default async function InboxPage({
   const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
   if (!user) redirect("/login")
 
+  /**
+   * Chats (WhatsApp e Instagram) es la pestaña principal: es donde escriben los
+   * clientes. `clientes` era su nombre anterior y se acepta como alias para no
+   * romper links guardados. Equipo y Sistema siempre llegan con `tab` explícito.
+   */
   const tab =
-    params.tab === "clientes" || params.tab === "sistema" ? params.tab : "equipo"
+    params.tab === "equipo" || params.tab === "sistema"
+      ? params.tab
+      : "chats"
   const channel =
     params.canal === "whatsapp" || params.canal === "instagram" ? params.canal : "todos"
 
@@ -70,7 +77,7 @@ export default async function InboxPage({
             .order("created_at", { ascending: false })
             .limit(100)
         : EMPTY,
-      tab === "clientes"
+      tab === "chats"
         ? supabase
             .from("social_conversations")
             .select(
@@ -87,7 +94,7 @@ export default async function InboxPage({
             .order("last_message_at", { ascending: false, nullsFirst: false })
             .limit(200)
         : EMPTY,
-      tab === "clientes"
+      tab === "chats"
         ? supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
         : Promise.resolve({ data: null }),
     ])
@@ -98,7 +105,7 @@ export default async function InboxPage({
 
   // El id seleccionado se resuelve contra la lista de la pestaña activa: cada
   // una tiene sus propias conversaciones y sus propios ids.
-  const pool: { id: string }[] = tab === "clientes" ? socialConversations : conversations
+  const pool: { id: string }[] = tab === "chats" ? socialConversations : conversations
   const selectedId =
     params.conversation && pool.some((item) => item.id === params.conversation)
       ? params.conversation
@@ -135,7 +142,7 @@ export default async function InboxPage({
             .eq("conversation_id", selectedId)
             .order("created_at", { ascending: false })
         : EMPTY,
-      selectedId && tab === "clientes"
+      selectedId && tab === "chats"
         ? supabase
             .from("social_messages")
             .select(

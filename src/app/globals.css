@@ -248,6 +248,82 @@
   from { transform: scaleX(0); }
 }
 
+/* ---------- Tarjetas con brillo que sigue al cursor ---------- */
+/* `SpotlightTracker` escribe la posición. Registradas sin herencia: moverlas
+   no recalcula el estilo de todo el contenido de la tarjeta. Los
+   pseudo-elementos las piden con `inherit` explícito. */
+@property --spot-x {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: -9999px;
+}
+@property --spot-y {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: -9999px;
+}
+
+.spotlight {
+  position: relative;
+  isolation: isolate;
+}
+.spotlight::before,
+.spotlight::after {
+  --spot-x: inherit;
+  --spot-y: inherit;
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms var(--ease-out-soft);
+}
+/* Luz suave sobre el fondo. */
+.spotlight::before {
+  background: radial-gradient(
+    280px circle at var(--spot-x) var(--spot-y),
+    color-mix(in oklab, var(--primary) 9%, transparent),
+    transparent 70%
+  );
+}
+/* El borde se enciende cerca del cursor: un anillo de 1px recortado con máscara. */
+.spotlight::after {
+  z-index: 1;
+  padding: 1px;
+  background: radial-gradient(
+    200px circle at var(--spot-x) var(--spot-y),
+    color-mix(in oklab, var(--primary) 60%, transparent),
+    transparent 70%
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+@media (hover: hover) and (pointer: fine) {
+  .spotlight:hover::before,
+  .spotlight:hover::after {
+    opacity: 1;
+  }
+}
+
+/* Una tarjeta "a cobrar" vencida tiene el brillo en rojo: el color dice lo mismo que el dato. */
+.spotlight-danger::before {
+  background: radial-gradient(
+    280px circle at var(--spot-x) var(--spot-y),
+    color-mix(in oklab, var(--destructive) 8%, transparent),
+    transparent 70%
+  );
+}
+.spotlight-danger::after {
+  background: radial-gradient(
+    200px circle at var(--spot-x) var(--spot-y),
+    color-mix(in oklab, var(--destructive) 55%, transparent),
+    transparent 70%
+  );
+}
+
 /* ---------- Movimiento reducido ---------- */
 /* Sin desplazamientos ni escalas. Los fundidos de tw-animate-css se
    conservan (anular sus variables de traslado deja sólo la opacidad), y

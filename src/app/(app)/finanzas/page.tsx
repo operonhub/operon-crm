@@ -1,8 +1,10 @@
-import { WalletCards } from "lucide-react"
+import { AlarmClock, ArrowDownLeft, ArrowUpRight, Hourglass, WalletCards } from "lucide-react"
 import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
-import { Card } from "@/components/ui/card"
+import { KpiCard } from "@/components/shell/kpi-card"
+import { MoneyPair } from "@/components/shell/money-pair"
+import { ReceivableHealthCard } from "@/components/finance/receivable-health"
 import {
   NewFinancialRecordDialog,
   type FinanceOption,
@@ -14,10 +16,11 @@ import {
 import {
   financialBalance,
   financialStatus,
+  hasMoney,
+  receivableHealth,
   summarizeFinances,
-  type MoneyByCurrency,
 } from "@/lib/finance"
-import { formatMoney, todayISO } from "@/lib/format"
+import { todayISO } from "@/lib/format"
 import type {
   FinancialRecordType,
   SupportedCurrency,
@@ -120,14 +123,40 @@ export default async function FinanzasPage() {
           </div>
         ) : (
           <>
-            <Card className="gap-0 overflow-hidden py-0">
-              <div className="grid grid-cols-2 lg:grid-cols-4">
-                <SummaryCell label="Cobrado este mes" totals={summary.collectedThisMonth} />
-                <SummaryCell label="Pendiente" totals={summary.pending} border />
-                <SummaryCell label="Vencido" totals={summary.overdue} border danger />
-                <SummaryCell label="Gastos este mes" totals={summary.expensesThisMonth} border />
-              </div>
-            </Card>
+            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
+              <KpiCard
+                index={0}
+                label="Cobrado este mes"
+                tone="success"
+                icon={<ArrowDownLeft />}
+                display={<MoneyPair totals={summary.collectedThisMonth} />}
+              />
+              <KpiCard
+                index={1}
+                label="Pendiente"
+                tone="primary"
+                icon={<Hourglass />}
+                display={<MoneyPair totals={summary.pending} />}
+              />
+              <KpiCard
+                index={2}
+                label="Vencido"
+                tone={hasMoney(summary.overdue) ? "danger" : "default"}
+                icon={<AlarmClock />}
+                display={<MoneyPair totals={summary.overdue} />}
+                hint={hasMoney(summary.overdue) ? "Requiere seguimiento" : "Todo al día"}
+              />
+              <KpiCard
+                index={3}
+                label="Gastos este mes"
+                icon={<ArrowUpRight />}
+                display={<MoneyPair totals={summary.expensesThisMonth} />}
+              />
+            </div>
+
+            <ReceivableHealthCard
+              rows={[receivableHealth(summary, "ARS"), receivableHealth(summary, "USD")]}
+            />
 
             <section aria-labelledby="receivables-title" className="space-y-3">
               <div className="flex items-center gap-2">
@@ -146,26 +175,5 @@ export default async function FinanzasPage() {
       </div>
     </>
     </PageTransition>
-  )
-}
-function SummaryCell({
-  label,
-  totals,
-  border = false,
-  danger = false,
-}: {
-  label: string
-  totals: MoneyByCurrency
-  border?: boolean
-  danger?: boolean
-}) {
-  return (
-    <div className={`${border ? "border-l" : ""} border-b p-4 last:border-b-0 lg:border-b-0`}>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <div className={`mt-2 space-y-0.5 font-mono text-sm font-semibold tabular-nums ${danger && (totals.ARS > 0 || totals.USD > 0) ? "text-destructive" : ""}`}>
-        <p>{formatMoney(totals.ARS, "ARS")}</p>
-        <p>{formatMoney(totals.USD, "USD")}</p>
-      </div>
-    </div>
   )
 }

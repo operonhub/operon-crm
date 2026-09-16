@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils"
 /**
  * Tarjeta de indicador. Reemplaza `Kpi` (Redes), `MetricCard` (Métricas) y
  * `MetricCard` (Agentes), con el lenguaje de los KPI de *Hoy*: anillo, sombra,
- * entrada escalonada y elevación al pasar el mouse si es clickeable.
+ * entrada escalonada, brillo que sigue al cursor (`SpotlightTracker`) y
+ * elevación al pasar el mouse si es clickeable.
  *
  * `value` numérico + `format` cuenta hacia arriba; `display` (texto ya
  * formateado) se muestra tal cual, para los casos que no tiene sentido animar
@@ -58,7 +59,8 @@ export function KpiCard({
     <div
       className={cn(
         ENTER_UP,
-        "flex h-full min-h-28 flex-col rounded-xl bg-card p-4 shadow-md shadow-foreground/[0.05] ring-1",
+        "spotlight flex h-full min-h-28 flex-col rounded-xl bg-card p-4 shadow-md shadow-foreground/[0.05] ring-1",
+        tone === "danger" && "spotlight-danger",
         RING[tone],
         href && cn(LIFT, "group-focus-visible:ring-3 group-focus-visible:ring-ring/50"),
         className

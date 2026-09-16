@@ -113,3 +113,41 @@ export function validateCancellation(reason: string): FinancialValidation {
   }
   return { ok: true }
 }
+
+export type ReceivableHealth = {
+  currency: SupportedCurrency
+  /** Todo lo que falta cobrar: al día + vencido. */
+  owed: number
+  onTime: number
+  overdue: number
+  /** Porción vencida de lo que falta cobrar, 0–100. `null` si no se debe nada. */
+  overduePct: number | null
+  /** Cobrado menos gastado en el mes. Puede ser negativo. */
+  netThisMonth: number
+}
+
+/**
+ * La pregunta que responde la barra de Finanzas: de lo que me deben, ¿cuánto
+ * ya está vencido? Por moneda, nunca sumando pesos con dólares.
+ *
+ * El porcentaje se redondea hacia arriba si hay algo vencido: un 0,3% vencido
+ * mostrado como "0%" esconde justo la deuda que hay que ir a cobrar.
+ */
+export function receivableHealth(
+  summary: FinancialSummary,
+  currency: SupportedCurrency
+): ReceivableHealth {
+  const onTime = summary.pending[currency]
+  const overdue = summary.overdue[currency]
+  const owed = onTime + overdue
+  const overduePct =
+    owed === 0 ? null : overdue === 0 ? 0 : Math.min(100, Math.max(1, Math.round((overdue / owed) * 100)))
+  return {
+    currency,
+    owed,
+    onTime,
+    overdue,
+    overduePct,
+    netThisMonth: summary.collectedThisMonth[currency] - summary.expensesThisMonth[currency],
+  }
+}

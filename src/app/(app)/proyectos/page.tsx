@@ -1,6 +1,9 @@
 import Link from "next/link"
 import { PageHero } from "@/components/shell/page-hero"
-import { AlertTriangle, ArrowRight, CheckCircle2, Flag, ListChecks } from "lucide-react"
+import { AlertTriangle, ArrowDown, ArrowRight, CheckCircle2, Flag, ListChecks } from "lucide-react"
+import { CountUp } from "@/components/shell/count-up"
+import { ENTER_UP, LIFT, stagger } from "@/lib/motion"
+import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/server"
 import { ProjectCreateButton } from "@/components/projects/project-create-button"
 import { getQuickCreateOptions } from "@/lib/dashboard/queries"
@@ -97,7 +100,7 @@ export default async function ProyectosPage({
         )}
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {PROJECT_AREAS.map((area) => {
+          {PROJECT_AREAS.map((area, areaIndex) => {
             const areaProjects = projects.filter((project) => project.area === area)
             const active = areaProjects.filter((project) => ACTIVE_PROJECT_STATUSES.includes(project.status))
             const pending = active.reduce((sum, project) => sum + project.pending, 0)
@@ -106,19 +109,40 @@ export default async function ProyectosPage({
               .filter((project) => project.due_date)
               .sort((a, b) => a.due_date!.localeCompare(b.due_date!))[0]
 
+            // Cada área lleva a su sección más abajo: la tarjeta es un resumen y un atajo.
             return (
-              <Card key={area} className={`gap-0 border-l-4 p-4 ${AREA_ACCENT[area]}`}>
-                <h2 className="font-heading text-sm font-semibold">{PROJECT_AREA_LABELS[area]}</h2>
-                <p className="mt-1 min-h-8 text-xs leading-4 text-muted-foreground">{PROJECT_AREA_DESCRIPTIONS[area]}</p>
-                <div className="mt-4 grid grid-cols-3 gap-2 border-t pt-3">
-                  <MiniStat label="Activos" value={active.length} />
-                  <MiniStat label="Pendientes" value={pending} />
-                  <MiniStat label="Bloqueos" value={blocked} danger={blocked > 0} />
-                </div>
-                <p className="mt-3 truncate text-xs text-muted-foreground">
-                  {nextDue ? `Próxima entrega: ${formatDateShort(nextDue.due_date)}` : "Sin entregas próximas"}
-                </p>
-              </Card>
+              <a
+                key={area}
+                href={`#area-${area}`}
+                className={cn(ENTER_UP, "group block rounded-xl outline-none")}
+                style={stagger(areaIndex, 55)}
+              >
+                <Card
+                  className={cn(
+                    "spotlight h-full gap-0 border-l-4 p-4 group-focus-visible:ring-3 group-focus-visible:ring-ring/50",
+                    LIFT,
+                    blocked > 0 && "spotlight-danger",
+                    AREA_ACCENT[area]
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="font-heading text-sm font-semibold">{PROJECT_AREA_LABELS[area]}</h2>
+                    <ArrowDown
+                      className="size-3.5 shrink-0 -translate-y-1 text-muted-foreground opacity-0 transition-[opacity,translate] duration-200 group-hover:translate-y-0.5 group-hover:opacity-100"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <p className="mt-1 min-h-8 text-xs leading-4 text-muted-foreground">{PROJECT_AREA_DESCRIPTIONS[area]}</p>
+                  <div className="mt-4 grid grid-cols-3 gap-2 border-t pt-3">
+                    <MiniStat label="Activos" value={active.length} />
+                    <MiniStat label="Pendientes" value={pending} />
+                    <MiniStat label="Bloqueos" value={blocked} danger={blocked > 0} />
+                  </div>
+                  <p className="mt-3 truncate text-xs text-muted-foreground">
+                    {nextDue ? `Próxima entrega: ${formatDateShort(nextDue.due_date)}` : "Sin entregas próximas"}
+                  </p>
+                </Card>
+              </a>
             )
           })}
         </div>
@@ -126,10 +150,10 @@ export default async function ProyectosPage({
         {PROJECT_AREAS.map((area) => {
           const areaProjects = projects.filter((project) => project.area === area)
           return (
-            <section key={area} aria-labelledby={`area-${area}`} className="space-y-3">
+            <section key={area} id={`area-${area}`} aria-labelledby={`area-${area}-title`} className="scroll-mt-4 space-y-3">
               <div className="flex items-center gap-2">
                 <span className={`h-4 border-l-4 ${AREA_ACCENT[area]}`} aria-hidden="true" />
-                <h2 id={`area-${area}`} className="font-heading text-sm font-semibold">{PROJECT_AREA_LABELS[area]}</h2>
+                <h2 id={`area-${area}-title`} className="font-heading text-sm font-semibold">{PROJECT_AREA_LABELS[area]}</h2>
                 <span className="font-mono text-xs text-muted-foreground">{areaProjects.length}</span>
               </div>
 
@@ -140,8 +164,14 @@ export default async function ProyectosPage({
               ) : (
                 <div className="grid gap-3 xl:grid-cols-2">
                   {areaProjects.map((project) => (
-                    <Link key={project.id} href={`/proyectos/${project.id}`} className="group">
-                      <Card className="h-full gap-0 p-0 transition-colors group-hover:bg-muted/30">
+                    <Link key={project.id} href={`/proyectos/${project.id}`} className="group rounded-xl outline-none">
+                      <Card
+                        className={cn(
+                          "spotlight h-full gap-0 p-0 group-focus-visible:ring-3 group-focus-visible:ring-ring/50",
+                          LIFT,
+                          project.blocked > 0 && "spotlight-danger"
+                        )}
+                      >
                         <div className="flex items-start justify-between gap-3 border-b px-4 py-3.5">
                           <div className="min-w-0">
                             <h3 className="truncate text-sm font-semibold">{project.name}</h3>
@@ -161,7 +191,20 @@ export default async function ProyectosPage({
                         </div>
                         <div className="flex items-center justify-between border-t px-4 py-2.5 text-xs text-muted-foreground">
                           <span>{project.owner?.full_name ?? "Sin responsable"}</span>
-                          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1 group-hover:text-foreground" />
+                        </div>
+                        {/*
+                          Progreso como barra al pie, a todo el ancho: se lee de reojo al
+                          recorrer la lista. Verde completo, rojo si hay bloqueos.
+                        */}
+                        <div className="h-1 bg-muted" aria-hidden="true">
+                          <div
+                            className={cn(
+                              "chart-grow-x h-full",
+                              project.blocked > 0 ? "bg-destructive" : project.progress.pct === 100 ? "bg-success" : "bg-primary"
+                            )}
+                            style={{ width: `${project.progress.pct}%` }}
+                          />
                         </div>
                       </Card>
                     </Link>
@@ -177,7 +220,7 @@ export default async function ProyectosPage({
 }
 
 function MiniStat({ label, value, danger = false }: { label: string; value: number; danger?: boolean }) {
-  return <div><p className={`font-mono text-lg font-semibold tabular-nums ${danger ? "text-destructive" : ""}`}>{value}</p><p className="text-[10px] text-muted-foreground">{label}</p></div>
+  return <div><p className={`font-mono text-lg font-semibold tabular-nums ${danger ? "text-destructive" : ""}`}><CountUp value={value} /></p><p className="text-[10px] text-muted-foreground">{label}</p></div>
 }
 
 function ProjectStat({ icon: Icon, label, value, danger = false }: { icon: React.ElementType; label: string; value: string | number; danger?: boolean }) {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
+  AVATAR_TONES,
+  avatarTone,
   dayLabel,
+  isPhoneLike,
   groupThread,
   initials,
   placeholderKind,
@@ -139,5 +142,36 @@ describe("initials", () => {
 
   it("sin nombre muestra un signo", () => {
     expect(initials(null)).toBe("?")
+  })
+})
+
+describe("avatarTone", () => {
+  it("es estable: el mismo contacto siempre del mismo color", () => {
+    expect(avatarTone("Bosques del Sur")).toBe(avatarTone("Bosques del Sur"))
+  })
+
+  it("reparte contactos distintos entre los tonos disponibles", () => {
+    const nombres = ["Lucía", "Jonás Zandanel", "Bosques del Sur", "Amaneceres", "Mati", "Rodrigo", "Jimena", "Hugo"]
+    const tonos = new Set(nombres.map(avatarTone))
+    expect(tonos.size).toBeGreaterThan(2)
+    nombres.forEach((n) => expect(avatarTone(n)).toBeLessThan(AVATAR_TONES))
+  })
+
+  it("tolera un contacto sin nombre", () => {
+    expect(avatarTone(null)).toBe(0)
+  })
+})
+
+describe("isPhoneLike", () => {
+  it("reconoce números con y sin formato", () => {
+    expect(isPhoneLike("5493874570554")).toBe(true)
+    expect(isPhoneLike("+54 9 11 7238-5877")).toBe(true)
+  })
+
+  it("no confunde un nombre o un usuario con un teléfono", () => {
+    expect(isPhoneLike("Jonás Zandanel")).toBe(false)
+    expect(isPhoneLike("lu.viajes2024")).toBe(false)
+    expect(isPhoneLike("123")).toBe(false)
+    expect(isPhoneLike(null)).toBe(false)
   })
 })

@@ -152,3 +152,26 @@ export function initials(name: string | null): string {
   if (words.length === 0) return "#"
   return (words[0][0] + (words.length > 1 ? words.at(-1)![0] : "")).toUpperCase()
 }
+
+/**
+ * Tono estable para el avatar de un contacto sin foto.
+ *
+ * Meta casi nunca entrega fotos (WhatsApp nunca; Instagram sólo de quien le dio
+ * consentimiento a la cuenta), así que la mayoría de los chats van con
+ * iniciales. Un color por contacto —siempre el mismo para el mismo nombre—
+ * hace que la lista se pueda escanear en vez de ser una columna de círculos
+ * grises idénticos.
+ */
+export const AVATAR_TONES = 5
+
+export function avatarTone(seed: string | null): number {
+  const text = seed ?? ""
+  let hash = 0
+  for (let i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) >>> 0
+  return hash % AVATAR_TONES
+}
+
+/** "5493874570554", "+54 9 11 7238-5877": un número y nada más. */
+export function isPhoneLike(name: string | null): boolean {
+  return Boolean(name && /^\+?[\d\s()-]{6,}$/.test(name.trim()))
+}

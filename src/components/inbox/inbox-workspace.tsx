@@ -173,7 +173,7 @@ export function InboxWorkspace({
   explicitSelection,
 }: {
   currentProfileId: string
-  tab: "equipo" | "clientes" | "sistema"
+  tab: "chats" | "equipo" | "sistema"
   statusFilter: string
   assignedFilter: string
   conversations: Conversation[]
@@ -250,7 +250,7 @@ export function InboxWorkspace({
     <PageHero
       eyebrow="Comunicación y sistemas"
       title="Bandeja"
-      description="Chats de clientes por WhatsApp e Instagram, conversaciones del equipo y avisos del sistema."
+      description="Chats de WhatsApp e Instagram, conversaciones del equipo y avisos del sistema."
       actions={
         tab === "equipo" ? (
           <Button onClick={() => setNewOpen(true)}>
@@ -265,13 +265,13 @@ export function InboxWorkspace({
         className="mb-4"
         active={tab}
         tabs={[
+          { value: "chats", label: "Chats", href: "/bandeja?tab=chats", icon: <Inbox className="size-4" /> },
           { value: "equipo", label: "Equipo", href: "/bandeja?tab=equipo", icon: <MessageSquare className="size-4" /> },
-          { value: "clientes", label: "Clientes", href: "/bandeja?tab=clientes", icon: <Inbox className="size-4" /> },
           { value: "sistema", label: "Sistema", href: "/bandeja?tab=sistema", icon: <Bell className="size-4" /> },
         ]}
       />
 
-      {tab === "clientes" ? (
+      {tab === "chats" ? (
         <SocialInbox
           conversations={socialConversations}
           messages={socialMessages}

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { AppSidebar, MobileNav } from "@/components/app-sidebar"
 import { RefreshOnFocus } from "@/components/refresh-on-focus"
+import { SpotlightTracker } from "@/components/shell/spotlight-tracker"
 import { AssistantMount } from "@/components/assistant/assistant-mount"
 import { getSessionUser } from "@/lib/auth"
 
@@ -41,6 +42,7 @@ export default async function AppLayout({
   return (
     <div className="flex h-dvh overflow-hidden">
       <RefreshOnFocus />
+      <SpotlightTracker />
       <AppSidebar
         userName={userName}
         userRole={userRole}

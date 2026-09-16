@@ -15,6 +15,7 @@ import {
   ImageIcon,
   MessageCircle,
   Paperclip,
+  Phone,
   Search,
   Send,
   UserPlus,
@@ -35,8 +36,10 @@ import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/ui/status-badge"
 import type { ActionResult } from "@/lib/action-result"
 import {
+  avatarTone,
   groupThread,
   initials,
+  isPhoneLike,
   placeholderKind,
   readAttachments,
   timeOfDay,
@@ -85,6 +88,18 @@ function displayName(c: Pick<SocialConversation, "participant_name" | "participa
   return c.participant_name ?? c.participant_handle ?? "Sin nombre"
 }
 
+/**
+ * Fondos de avatar con la paleta de marca; el texto queda en tinta para que se
+ * lea. Sin rojo: en un chat se leería como error o como urgente.
+ */
+const AVATAR_BG = [
+  "bg-primary/15",
+  "bg-warning/35",
+  "bg-success/20",
+  "bg-chart-4/20",
+  "bg-chart-5/25",
+] as const
+
 function ContactAvatar({
   conversation,
   size = "default",
@@ -98,8 +113,14 @@ function ContactAvatar({
         {conversation.participant_avatar_url && (
           <AvatarImage src={conversation.participant_avatar_url} alt="" referrerPolicy="no-referrer" />
         )}
-        <AvatarFallback className="font-heading text-xs font-semibold">
-          {initials(displayName(conversation))}
+        <AvatarFallback
+          className={cn("font-heading text-xs font-semibold text-foreground/80", AVATAR_BG[avatarTone(displayName(conversation))])}
+        >
+          {isPhoneLike(conversation.participant_name) ? (
+            <Phone className="size-3.5" aria-hidden="true" />
+          ) : (
+            initials(displayName(conversation))
+          )}
         </AvatarFallback>
       </Avatar>
       {/* La red va sobre el avatar, como en el celular: se reconoce de un vistazo. */}
@@ -368,7 +389,7 @@ export function SocialInbox({
     ? messagingWindow(selected.platform, selected.last_inbound_at)
     : ({ state: "not_applicable" } as const)
   const showThreadOnMobile = explicitSelection && selected !== null
-  const listHref = `/bandeja?tab=clientes&canal=${channel}`
+  const listHref = `/bandeja?tab=chats&canal=${channel}`
 
   return (
     <div className="space-y-3">
@@ -380,7 +401,7 @@ export function SocialInbox({
           tabs={CHANNELS.map((item) => ({
             value: item.value,
             label: item.label,
-            href: `/bandeja?tab=clientes&canal=${item.value}`,
+            href: `/bandeja?tab=chats&canal=${item.value}`,
             icon: item.value === "todos" ? undefined : <PlatformIcon platform={item.value} colored className="size-3.5" />,
           }))}
         />
