@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import {
   AlertTriangle,
   ArrowRight,
+  DownloadCloud,
   AtSign,
   Check,
   CircleSlash,
@@ -14,6 +15,7 @@ import {
   UserPlus,
 } from "lucide-react"
 import { toast } from "sonner"
+import { backfillSocialInbox } from "@/app/(app)/bandeja/backfill-actions"
 import {
   convertConversationToLead,
   markSocialConversationRead,
@@ -88,6 +90,7 @@ export function SocialInbox({
   channel,
   configured,
   notConfiguredReason,
+  isAdmin,
 }: {
   conversations: SocialConversation[]
   messages: SocialMessage[]
@@ -95,6 +98,7 @@ export function SocialInbox({
   channel: string
   configured: boolean
   notConfiguredReason: string | null
+  isAdmin: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -166,6 +170,7 @@ export function SocialInbox({
 
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex w-full gap-1 overflow-x-auto rounded-xl border bg-card p-1 sm:w-fit">
         {CHANNELS.map((item) => (
           <Link
@@ -182,6 +187,19 @@ export function SocialInbox({
             {item.label}
           </Link>
         ))}
+      </div>
+
+      {isAdmin && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={pending}
+          onClick={() => run(backfillSocialInbox())}
+        >
+          <DownloadCloud className="mr-1 size-4" aria-hidden="true" />
+          Importar historial
+        </Button>
+      )}
       </div>
 
       <div className="grid min-h-[calc(100dvh-18rem)] overflow-hidden rounded-2xl border bg-card shadow-sm lg:grid-cols-[22rem_minmax(0,1fr)]">

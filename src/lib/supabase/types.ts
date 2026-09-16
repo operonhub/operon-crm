@@ -2843,6 +2843,18 @@ export type Database = {
         Args: { p_payload: Json; p_secret: string }
         Returns: Json
       }
+      ingest_social_event: {
+        Args: {
+          p_account_external_id: string | null
+          p_conversation: Json
+          p_event_id: string
+          p_event_type: string
+          p_message: Json
+          p_payload: Json
+          p_secret: string
+        }
+        Returns: Json
+      }
       is_conversation_participant: {
         Args: { p_conversation_id: string }
         Returns: boolean

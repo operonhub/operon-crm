@@ -167,6 +167,7 @@ export function InboxWorkspace({
   channel,
   socialConfigured,
   socialReason,
+  isAdmin,
 }: {
   currentProfileId: string
   tab: "equipo" | "clientes" | "sistema"
@@ -186,6 +187,7 @@ export function InboxWorkspace({
   channel: string
   socialConfigured: boolean
   socialReason: string | null
+  isAdmin: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -276,6 +278,7 @@ export function InboxWorkspace({
           channel={channel}
           configured={socialConfigured}
           notConfiguredReason={socialReason}
+          isAdmin={isAdmin}
         />
       ) : tab === "sistema" ? (
         <SystemNotifications notifications={notifications} pending={pending} run={run} />

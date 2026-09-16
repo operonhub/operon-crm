@@ -26,7 +26,7 @@ export default async function InboxPage({
   const channel =
     params.canal === "whatsapp" || params.canal === "instagram" ? params.canal : "todos"
 
-  const [conversationsRes, profilesRes, projectsRes, notificationsRes] =
+  const [conversationsRes, profilesRes, projectsRes, notificationsRes, profileRes] =
     await Promise.all([
       supabase
         .from("conversations")
@@ -57,6 +57,7 @@ export default async function InboxPage({
         .eq("recipient_id", user.id)
         .order("created_at", { ascending: false })
         .limit(100),
+      supabase.from("profiles").select("role").eq("id", user.id).single(),
     ])
 
   const conversations = conversationsRes.data ?? []
@@ -154,6 +155,7 @@ export default async function InboxPage({
       channel={channel}
       socialConfigured={zernio.configured}
       socialReason={zernio.configured ? null : zernio.reason}
+      isAdmin={profileRes.data?.role === "admin"}
     />
   )
 }
