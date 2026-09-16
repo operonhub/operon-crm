@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   Plug,
+  Share2,
   Target,
   UsersRound,
   WalletCards,
@@ -142,6 +143,7 @@ function SidebarNav({
 }) {
   const communicationNav: NavItem[] = [
     { href: "/bandeja", label: "Bandeja", icon: Inbox, badge: unreadCount },
+    { href: "/redes", label: "Redes sociales", icon: Share2 },
     { href: "/agentes", label: "Agentes", icon: Bot },
     { href: "/ajustes/conexiones", label: "Conexiones", icon: Plug },
   ]
