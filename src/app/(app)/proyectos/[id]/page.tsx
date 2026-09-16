@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, CalendarClock, ExternalLink, WalletCards, Zap } from "lucide-react"
+import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
 import { ServiceTypeBadge } from "@/components/project-badges"
@@ -43,9 +44,11 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const supabase = await createClient()
+  const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
 
-  const { data: project } = await supabase
+  // Las doce consultas de la ficha sólo dependen del id de la URL, no del
+  // proyecto en sí: van todas juntas. Antes eran cuatro viajes en serie.
+  const projectPromise = supabase
     .from("projects")
     .select(
       `id, name, type, area, engagement_kind, operational_type, status, scope, conversion_goal, kpi, start_date, due_date, links,
@@ -57,9 +60,12 @@ export default async function ProjectDetailPage({
     .eq("id", id)
     .maybeSingle()
 
-  if (!project) notFound()
-
-  const [tasksRes, automationsRes, activitiesRes, financeRes, clientsRes, profilesRes] = await Promise.all([
+  const [
+    { data: project },
+    tasksRes, automationsRes, activitiesRes, financeRes, clientsRes, profilesRes,
+    milestonesRes, blockersRes, collaboratorsRes, agentsRes, projectAgentsRes, currentProfileRes,
+  ] = await Promise.all([
+    projectPromise,
     supabase
       .from("project_tasks")
       .select("id, title, description, status, priority, due_date, owner_id, position, owner:profiles!project_tasks_owner_id_fkey(full_name)")
@@ -88,7 +94,17 @@ export default async function ProjectDetailPage({
       .from("profiles")
       .select("id, full_name")
       .order("full_name"),
+    supabase.from("project_milestones").select("id, title, description, due_date, status").eq("project_id", id).order("due_date"),
+    supabase.from("project_blockers").select("id, title, detail, status, owner:profiles!project_blockers_owner_id_fkey(full_name)").eq("project_id", id).order("created_at", { ascending: false }),
+    supabase.from("project_collaborators").select("profile_id").eq("project_id", id),
+    supabase.from("agents").select("id, name").neq("status", "archived").order("name"),
+    supabase.from("project_agents").select("agent_id").eq("project_id", id),
+    user
+      ? supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
+
+  if (!project) notFound()
 
   const tasks = tasksRes.data ?? []
   const automations = automationsRes.data ?? []
@@ -107,17 +123,6 @@ export default async function ProjectDetailPage({
 
   const links = (project.links ?? {}) as ProjectLinks
   const linkEntries = Object.entries(links).filter(([, v]) => v)
-  const { data: authData } = await supabase.auth.getUser()
-  const [milestonesRes, blockersRes, collaboratorsRes, agentsRes, projectAgentsRes, currentProfileRes] = await Promise.all([
-    supabase.from("project_milestones").select("id, title, description, due_date, status").eq("project_id", id).order("due_date"),
-    supabase.from("project_blockers").select("id, title, detail, status, owner:profiles!project_blockers_owner_id_fkey(full_name)").eq("project_id", id).order("created_at", { ascending: false }),
-    supabase.from("project_collaborators").select("profile_id").eq("project_id", id),
-    supabase.from("agents").select("id, name").neq("status", "archived").order("name"),
-    supabase.from("project_agents").select("agent_id").eq("project_id", id),
-    authData.user
-      ? supabase.from("profiles").select("role").eq("id", authData.user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ])
 
   return (
     <>

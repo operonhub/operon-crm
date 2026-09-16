@@ -1,4 +1,5 @@
 import { WalletCards } from "lucide-react"
+import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
 import { Card } from "@/components/ui/card"
@@ -23,9 +24,9 @@ import type {
 } from "@/lib/constants"
 
 export default async function FinanzasPage() {
-  const supabase = await createClient()
-  const { data: authData } = await supabase.auth.getUser()
-  const [recordsRes, clientsRes, projectsRes] = await Promise.all([
+  const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
+  // El rol va en el mismo lote: antes se pedía después, en un viaje aparte.
+  const [recordsRes, clientsRes, projectsRes, currentProfileRes] = await Promise.all([
     supabase
       .from("financial_records")
       .select(
@@ -42,6 +43,9 @@ export default async function FinanzasPage() {
       .select("id, organization:organizations(name)")
       .order("created_at", { ascending: false }),
     supabase.from("projects").select("id, name").order("name"),
+    user
+      ? supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   const today = todayISO()
@@ -96,10 +100,7 @@ export default async function FinanzasPage() {
     name: client.organization?.name ?? "Cliente sin organización",
   }))
   const projects: FinanceOption[] = projectsRes.data ?? []
-  const { data: currentProfile } = authData.user
-    ? await supabase.from("profiles").select("role").eq("id", authData.user.id).maybeSingle()
-    : { data: null }
-  const isAdmin = currentProfile?.role === "admin"
+  const isAdmin = currentProfileRes.data?.role === "admin"
 
   return (
     <>

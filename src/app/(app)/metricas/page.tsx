@@ -31,23 +31,66 @@ export default async function MetricasPage({ searchParams }: { searchParams: Pro
   const rangeTo = typeof params.to === "string" ? params.to : today
   const dateFrom = period === "30d" ? addDaysISO(today, -30) : period === "year" ? `${today.slice(0, 4)}-01-01` : period === "all" ? "" : period === "custom" ? rangeFrom : addDaysISO(today, -90)
   const supabase = await createClient()
+
+  /**
+   * Período, dueño, área y moneda se filtran en SQL.
+   *
+   * Antes se traían las siete tablas enteras —todo el historial— y se filtraba
+   * en JS, así que ver "últimos 30 días" costaba lo mismo que ver todo y
+   * empeoraba con cada lead cargado. La semántica es la misma de antes: el
+   * borde superior incluye el día entero (`< hasta + 1 día`).
+   */
+  const toExclusive = rangeTo ? addDaysISO(rangeTo, 1) : ""
+
+  let leadsQuery = supabase.from("leads").select("source, status, owner_id, created_at")
+  let oppsQuery = supabase.from("opportunities").select("stage, estimated_value, currency, owner_id, created_at")
+  let activitiesQuery = supabase.from("activities").select("type, owner_id, created_at")
+  let projectsQuery = supabase.from("projects").select("id, area, status, due_date, owner_id, created_at, project_tasks(status)")
+  let financeQuery = supabase.from("financial_records").select("record_type, currency, total_amount, paid_amount, due_date, paid_at, canceled_at, created_at")
+
+  if (dateFrom) {
+    leadsQuery = leadsQuery.gte("created_at", dateFrom)
+    oppsQuery = oppsQuery.gte("created_at", dateFrom)
+    activitiesQuery = activitiesQuery.gte("created_at", dateFrom)
+    projectsQuery = projectsQuery.gte("created_at", dateFrom)
+    financeQuery = financeQuery.gte("created_at", dateFrom)
+  }
+  if (toExclusive) {
+    leadsQuery = leadsQuery.lt("created_at", toExclusive)
+    oppsQuery = oppsQuery.lt("created_at", toExclusive)
+    activitiesQuery = activitiesQuery.lt("created_at", toExclusive)
+    projectsQuery = projectsQuery.lt("created_at", toExclusive)
+    financeQuery = financeQuery.lt("created_at", toExclusive)
+  }
+  if (owner !== "all") {
+    leadsQuery = leadsQuery.eq("owner_id", owner)
+    oppsQuery = oppsQuery.eq("owner_id", owner)
+    activitiesQuery = activitiesQuery.eq("owner_id", owner)
+    projectsQuery = projectsQuery.eq("owner_id", owner)
+  }
+  if (currency === "ARS" || currency === "USD") {
+    oppsQuery = oppsQuery.eq("currency", currency)
+    financeQuery = financeQuery.eq("currency", currency)
+  }
+  if (area !== "all" && (PROJECT_AREAS as readonly string[]).includes(area)) {
+    projectsQuery = projectsQuery.eq("area", area as ProjectArea)
+  }
+
   const [leadsRes, oppsRes, activitiesRes, projectsRes, financeRes, automationsRes, profilesRes] = await Promise.all([
-    supabase.from("leads").select("source, status, owner_id, created_at"),
-    supabase.from("opportunities").select("stage, estimated_value, currency, owner_id, created_at"),
-    supabase.from("activities").select("type, owner_id, created_at"),
-    supabase.from("projects").select("id, area, status, due_date, owner_id, created_at, project_tasks(status)"),
-    supabase.from("financial_records").select("record_type, currency, total_amount, paid_amount, due_date, paid_at, canceled_at, created_at"),
+    leadsQuery,
+    oppsQuery,
+    activitiesQuery,
+    projectsQuery,
+    financeQuery,
     supabase.from("automations").select("id, status, last_result"),
     supabase.from("profiles").select("id, full_name").order("full_name"),
   ])
 
-  const inRange = (createdAt: string) => (!dateFrom || createdAt.slice(0, 10) >= dateFrom) && (!rangeTo || createdAt.slice(0, 10) <= rangeTo)
-  const ownedBy = (ownerId: string | null) => owner === "all" || ownerId === owner
-  const leads = (leadsRes.data ?? []).filter((row) => inRange(row.created_at) && ownedBy(row.owner_id))
-  const opportunities = (oppsRes.data ?? []).filter((row) => inRange(row.created_at) && ownedBy(row.owner_id) && (currency === "all" || row.currency === currency))
-  const activities = (activitiesRes.data ?? []).filter((row) => inRange(row.created_at) && ownedBy(row.owner_id))
-  const projects = (projectsRes.data ?? []).filter((row) => inRange(row.created_at) && ownedBy(row.owner_id) && (area === "all" || row.area === area))
-  const finances = (financeRes.data ?? []).filter((row) => inRange(row.created_at) && (currency === "all" || row.currency === currency)).map((record) => ({
+  const leads = leadsRes.data ?? []
+  const opportunities = oppsRes.data ?? []
+  const activities = activitiesRes.data ?? []
+  const projects = projectsRes.data ?? []
+  const finances = (financeRes.data ?? []).map((record) => ({
     ...record,
     record_type: record.record_type as FinancialRecordType,
     currency: record.currency as SupportedCurrency,

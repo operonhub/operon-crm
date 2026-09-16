@@ -1,3 +1,4 @@
+import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { readHermesConfig } from "@/lib/assistant/config"
 import { DEFAULT_PREFERENCES } from "@/lib/assistant/policy"
@@ -13,10 +14,8 @@ import { AssistantPanel } from "./assistant-panel"
  * `children`, se remontaría en cada navegación y la conversación se perdería.
  */
 export async function AssistantMount() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Misma verificación que el layout: `getSessionUser` está memorizado por request.
+  const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
 
   if (!user) return null
 
