@@ -2196,6 +2196,277 @@ export type Database = {
           },
         ]
       }
+      social_accounts: {
+        Row: {
+          avatar_url: string | null
+          connected_at: string | null
+          created_at: string
+          display_name: string | null
+          follower_count: number | null
+          id: string
+          is_active: boolean
+          last_synced_at: string | null
+          platform: string
+          profile_url: string | null
+          updated_at: string
+          username: string | null
+          zernio_account_id: string
+          zernio_profile_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          connected_at?: string | null
+          created_at?: string
+          display_name?: string | null
+          follower_count?: number | null
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          platform: string
+          profile_url?: string | null
+          updated_at?: string
+          username?: string | null
+          zernio_account_id: string
+          zernio_profile_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          connected_at?: string | null
+          created_at?: string
+          display_name?: string | null
+          follower_count?: number | null
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          platform?: string
+          profile_url?: string | null
+          updated_at?: string
+          username?: string | null
+          zernio_account_id?: string
+          zernio_profile_id?: string | null
+        }
+        Relationships: []
+      }
+      social_conversations: {
+        Row: {
+          assigned_to: string | null
+          client_id: string | null
+          created_at: string
+          id: string
+          last_inbound_at: string | null
+          last_message_at: string | null
+          last_message_preview: string | null
+          last_read_at: string | null
+          last_read_by: string | null
+          lead_id: string | null
+          opportunity_id: string | null
+          participant_avatar_url: string | null
+          participant_external_id: string | null
+          participant_handle: string | null
+          participant_name: string | null
+          platform: string
+          social_account_id: string
+          status: string
+          unread_count: number
+          updated_at: string
+          zernio_conversation_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          last_read_at?: string | null
+          last_read_by?: string | null
+          lead_id?: string | null
+          opportunity_id?: string | null
+          participant_avatar_url?: string | null
+          participant_external_id?: string | null
+          participant_handle?: string | null
+          participant_name?: string | null
+          platform: string
+          social_account_id: string
+          status?: string
+          unread_count?: number
+          updated_at?: string
+          zernio_conversation_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          last_read_at?: string | null
+          last_read_by?: string | null
+          lead_id?: string | null
+          opportunity_id?: string | null
+          participant_avatar_url?: string | null
+          participant_external_id?: string | null
+          participant_handle?: string | null
+          participant_name?: string | null
+          platform?: string
+          social_account_id?: string
+          status?: string
+          unread_count?: number
+          updated_at?: string
+          zernio_conversation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_conversations_social_account_id_fkey"
+            columns: ["social_account_id"]
+            isOneToOne: false
+            referencedRelation: "social_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_conversations_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_messages: {
+        Row: {
+          attachments: Json | null
+          body: string | null
+          conversation_id: string
+          created_at: string
+          deleted_at: string | null
+          delivery_status: string
+          direction: string
+          error: Json | null
+          id: string
+          sent_at: string
+          sent_by: string | null
+          zernio_message_id: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          body?: string | null
+          conversation_id: string
+          created_at?: string
+          deleted_at?: string | null
+          delivery_status?: string
+          direction: string
+          error?: Json | null
+          id?: string
+          sent_at?: string
+          sent_by?: string | null
+          zernio_message_id?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          body?: string | null
+          conversation_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          delivery_status?: string
+          direction?: string
+          error?: Json | null
+          id?: string
+          sent_at?: string
+          sent_by?: string | null
+          zernio_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "social_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_messages_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_sync_state: {
+        Row: {
+          cursor: string | null
+          items_synced: number
+          last_error: string | null
+          last_run_at: string | null
+          last_success_at: string | null
+          metadata: Json | null
+          sync_key: string
+          updated_at: string
+        }
+        Insert: {
+          cursor?: string | null
+          items_synced?: number
+          last_error?: string | null
+          last_run_at?: string | null
+          last_success_at?: string | null
+          metadata?: Json | null
+          sync_key: string
+          updated_at?: string
+        }
+        Update: {
+          cursor?: string | null
+          items_synced?: number
+          last_error?: string | null
+          last_run_at?: string | null
+          last_success_at?: string | null
+          metadata?: Json | null
+          sync_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      social_webhook_events: {
+        Row: {
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json
+          processed_at: string | null
+          received_at: string
+          status: string
+          zernio_event_id: string
+        }
+        Insert: {
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+          status?: string
+          zernio_event_id: string
+        }
+        Update: {
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+          status?: string
+          zernio_event_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       financial_records_operational: {
