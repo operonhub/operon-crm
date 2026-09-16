@@ -130,6 +130,14 @@ export default async function RedesPage({
   const sync = syncRes.data
   const stories = storiesRes.data ?? []
 
+  /**
+   * Las tablas de contenido llegan en la migración 0016. Si todavía no se
+   * aplicó, PostgREST responde `PGRST205` y la consulta vuelve vacía — que se
+   * vería igual que "no sincronizaste nada", y son dos problemas distintos con
+   * dos soluciones distintas. Vale la pena distinguirlos en pantalla.
+   */
+  const faltaMigracion = postsRes.error?.code === "PGRST205"
+
   // De cada publicación se usa la foto más reciente. Las anteriores existen
   // para poder calcular evolución, no para mostrarlas todas juntas.
   const rows = postsRes.data ?? []
@@ -210,7 +218,19 @@ export default async function RedesPage({
         {isAdmin && zernio.configured && <SyncContentButton />}
       </div>
 
-      {!zernio.configured ? (
+      {faltaMigracion ? (
+        <Card className="flex min-h-80 flex-col items-center justify-center border-dashed p-8 text-center">
+          <TriangleAlert className="size-8 text-warning" aria-hidden="true" />
+          <p className="mt-4 font-heading text-lg font-semibold">
+            Falta aplicar la migración del contenido
+          </p>
+          <p className="mt-2 max-w-lg text-sm text-muted-foreground">
+            Las tablas de publicaciones y métricas todavía no existen en la base. Aplicá la
+            migración <code className="font-mono">0016_social_content.sql</code> desde el SQL
+            Editor de Supabase y volvé a esta pantalla.
+          </p>
+        </Card>
+      ) : !zernio.configured ? (
         <Card className="flex min-h-80 flex-col items-center justify-center border-dashed p-8 text-center">
           <p className="font-heading text-lg font-semibold">Falta conectar Instagram</p>
           <p className="mt-2 max-w-lg text-sm text-muted-foreground">{zernio.reason}</p>
