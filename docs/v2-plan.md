@@ -226,7 +226,35 @@ cuenta para la prueba de punta a punta.
 4. Sincronizar las cuentas desde `/ajustes/conexiones` — sin cuenta conocida el RPC marca los
    eventos como `ignored` y no materializa nada.
 
-### Fase 2 — Redes sociales
+### Fase 2 — Redes sociales ✅ HECHA (2026-09-15)
+
+`npm run test` 407 ✓ · `lint` ✓ · `build` ✓ · `tsc --noEmit` ✓ · PR #2 mergeado
+
+| Archivo | Qué hace |
+|---|---|
+| `supabase/migrations/0016_social_content.sql` | `social_posts`, `social_post_metrics`, `social_stories`, `social_story_metrics`, `social_follower_stats` |
+| `src/lib/social/metrics.ts` | Tasa de interacción, retención de reels, ritmo, ranking, crecimiento (puro) |
+| `src/lib/zernio/content.ts` | Normalización del contenido y sus métricas |
+| `src/components/charts/sparkline.tsx` | SVG a mano, sin librería nueva |
+| `src/app/(app)/redes/` | Pestañas Contenido y Analíticas + acción de sincronización |
+
+**Lo que se aprendió llamando a la API con la cuenta real** (y que la doc no decía):
+
+- `mediaType` y `mediaProductType` **no son lo mismo**: un reel siempre es video, pero un video
+  puede no ser reel. Sólo el segundo campo distingue el formato.
+- `igReelsAvgWatchTime` viene en **milisegundos**.
+- `/analytics` sólo lista los posts con insights ya conseguidos: con 12 publicados devolvía 3.
+  Por eso la pantalla muestra "3 de 12" en vez de 3 como si fueran todas.
+- El historial de seguidores devuelve ceros las primeras 24 h tras conectar la cuenta, porque
+  lo arma un fotógrafo diario de Zernio. Esos ceros se traducen a `null`.
+- WhatsApp informa `analyticsSupported: false`: la sección es Instagram y nada más.
+
+**Pendiente:** aplicar `0016` a la base, y montar los crons (contenido cada hora, historias cada
+3 h). Sin el cron de historias, el archivo de historias nunca se llena.
+
+<details>
+<summary>Detalle original de la fase</summary>
+
 - Migración `0016`.
 - Crons de Vercel: posts últimos 30 días cada hora, cola larga semanal, **historias cada 3h**,
   seguidores diario.
@@ -243,6 +271,8 @@ cuenta para la prueba de punta a punta.
     rate, evolución de seguidores, ritmo de publicación y **mejor rendimiento** rankeado por
     engagement rate (no por vistas brutas, que solo premia a lo más viejo).
   - **Cuentas** → estado de conexión y frescura del dato (`lastSync`), como recomienda la propia doc.
+
+</details>
 
 ### Fase 3 — Workflows (n8n)
 - Migración `0017`. `src/lib/n8n/client.ts` (header `X-N8N-API-KEY`, `GET /api/v1/workflows`,
