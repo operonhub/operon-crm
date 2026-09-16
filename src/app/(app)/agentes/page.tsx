@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { deriveAgentMetrics } from "@/lib/agents"
 import { roleLabel } from "@/lib/permissions"
+import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 
@@ -22,10 +23,7 @@ export default async function AgentsPage({
   searchParams: Promise<{ q?: string; status?: string; owner?: string }>
 }) {
   const params = await searchParams
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
 
   const [agentsRes, profilesRes, currentProfileRes] = await Promise.all([
     supabase

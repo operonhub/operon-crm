@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { sessionUserFromClaims } from "@/lib/session"
 import type { Database } from "./types"
 
 /**
@@ -30,9 +31,11 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // getClaims() también refresca la sesión si el token venció (lo que este
+  // middleware existe para hacer) y verifica la firma ES256 localmente, sin el
+  // viaje de red que costaba getUser() en cada request.
+  const { data } = await supabase.auth.getClaims()
+  const user = data ? sessionUserFromClaims(data.claims) : null
 
   const { pathname } = request.nextUrl
   /**

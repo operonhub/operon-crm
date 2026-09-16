@@ -5,6 +5,7 @@ import { SyncContentButton } from "@/components/social/sync-content-button"
 import { Sparkline, MeterRow } from "@/components/charts/sparkline"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import {
   cadence,
@@ -91,10 +92,7 @@ export default async function RedesPage({
     ? (params.formato as string)
     : "todos"
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
   if (!user) redirect("/login")
 
   const [profileRes, postsRes, followersRes, syncRes, storiesRes] = await Promise.all([

@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation"
+import { getSessionUser } from "@/lib/auth"
+import { todayISO } from "@/lib/format"
 import { createClient } from "@/lib/supabase/server"
 import {
   getDashboardData,
@@ -27,30 +29,25 @@ export default async function DashboardPage({
   const { scope: scopeParam } = await searchParams
   const scope = parseScope(scopeParam)
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
   if (!user) redirect("/login")
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  const [data, quickCreateOptions] = await Promise.all([
-    getDashboardData(scope, user.id),
-    getQuickCreateOptions(),
-  ])
-
-  const { data: dailyUpdates } = await supabase
-    .from("daily_updates")
-    .select(
-      "id, profile_id, progress, next_focus, blocker, needs_help, updated_at, profile:profiles!daily_updates_profile_id_fkey(full_name)"
-    )
-    .eq("update_date", data.today)
-    .order("updated_at", { ascending: false })
+  // Todo en un solo viaje. Antes eran cuatro en serie: perfil, datos del
+  // dashboard, y recién al final las actualizaciones del día, que sólo
+  // necesitaban la fecha de hoy.
+  const [{ data: profile }, data, quickCreateOptions, { data: dailyUpdates }] =
+    await Promise.all([
+      supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+      getDashboardData(scope, user.id),
+      getQuickCreateOptions(),
+      supabase
+        .from("daily_updates")
+        .select(
+          "id, profile_id, progress, next_focus, blocker, needs_help, updated_at, profile:profiles!daily_updates_profile_id_fkey(full_name)"
+        )
+        .eq("update_date", todayISO())
+        .order("updated_at", { ascending: false }),
+    ])
 
   const mine = scope === "mine"
   const scopeSuffix = mine ? "de tu trabajo" : "de todo el equipo"

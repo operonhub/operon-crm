@@ -5,6 +5,7 @@ import { SyncAccountsButton } from "@/components/settings/sync-accounts-button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { readHermesConfig } from "@/lib/assistant/config"
+import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { maskApiKey, readZernioConfig, readZernioWebhookConfig } from "@/lib/zernio/config"
 import { platformLabel } from "@/lib/zernio/types"
@@ -88,10 +89,7 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default async function ConnectionsPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
   if (!user) redirect("/login")
 
   const [profileRes, accountsRes, syncRes] = await Promise.all([

@@ -176,6 +176,16 @@ export async function getDashboardData(
     .in("stage", ACTIVE_STAGES)
   if (mine) opportunitiesQuery = opportunitiesQuery.eq("owner_id", userId)
 
+  /**
+   * Sólo ingresos no cancelados.
+   *
+   * El dashboard usa estos registros para dos cosas: las alertas de cobro
+   * vencido y el total pendiente de cobro. Un gasto o un registro cancelado no
+   * puede generar ninguna de las dos, así que traerlos era puro peso.
+   *
+   * No se acota por fecha a propósito: un cobro de hace un año que sigue impago
+   * tiene que seguir apareciendo. Cortar por período lo escondería.
+   */
   const financeQuery = supabase
     .from("financial_records")
     .select(
@@ -184,11 +194,15 @@ export async function getDashboardData(
        client:clients(organization:organizations(name)),
        project:projects(name)`
     )
+    .eq("record_type", "income")
+    .is("canceled_at", null)
 
+  // Superconjunto del patrón de fallo que se aplica más abajo en JS: la base
+  // descarta lo que seguro no es un error y el regex decide lo fino.
   const automationsQuery = supabase
     .from("automations")
     .select("id, name, last_result, last_run_at, project_id, project:projects(id, name)")
-    .not("last_result", "is", null)
+    .or("last_result.ilike.*error*,last_result.ilike.*fail*,last_result.ilike.*fall*")
 
   const [projectsRes, tasksRes, clientsRes, activitiesRes, opportunitiesRes, financeRes, automationsRes] =
     await Promise.all([

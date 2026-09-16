@@ -35,6 +35,7 @@ import {
   summarizeFinances,
 } from "@/lib/finance"
 import { formatDate, formatMoney, todayISO } from "@/lib/format"
+import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 
@@ -56,10 +57,7 @@ export default async function ClientDetailPage({
 }) {
   const { id } = await params
   const { tab = "resumen" } = await searchParams
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
 
   let { data: client } = await supabase
     .from("clients")

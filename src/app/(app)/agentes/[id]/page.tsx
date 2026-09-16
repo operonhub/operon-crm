@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation"
 import { AgentDetailWorkspace } from "@/components/agents/agent-detail-workspace"
+import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 
 export default async function AgentDetailPage({
@@ -11,10 +12,7 @@ export default async function AgentDetailPage({
 }) {
   const { id } = await params
   const { tab } = await searchParams
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
   if (!user) redirect("/login")
 
   const [agentRes, runsRes, approvalsRes, projectsRes, profilesRes, auditRes, currentProfileRes] =
