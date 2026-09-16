@@ -25,11 +25,20 @@ import {
 import { formatDateShort, todayISO } from "@/lib/format"
 import { PageTransition } from "@/components/shell/page-transition"
 
-const AREA_ACCENT: Record<ProjectArea, string> = {
-  sites_ecommerce: "border-l-primary",
-  apps_saas: "border-l-primary/55",
-  automations_crm: "border-l-warning",
-  assets_brand: "border-l-foreground/25",
+/**
+ * Color de cada área, como punto junto al nombre (mismos tonos que las barras de
+ * Métricas). Antes era una franja gruesa a la izquierda de la tarjeta: pesaba
+ * más que el contenido y hacía que las cuatro se vieran como plantilla.
+ */
+const AREA_DOT: Record<ProjectArea, string> = {
+  sites_ecommerce: "bg-primary",
+  apps_saas: "bg-primary/55",
+  automations_crm: "bg-warning",
+  assets_brand: "bg-foreground/35",
+}
+
+function AreaDot({ area }: { area: ProjectArea }) {
+  return <span className={cn("size-2 shrink-0 rounded-full", AREA_DOT[area])} aria-hidden="true" />
 }
 
 export default async function ProyectosPage({
@@ -119,14 +128,16 @@ export default async function ProyectosPage({
               >
                 <Card
                   className={cn(
-                    "spotlight h-full gap-0 border-l-4 p-4 group-focus-visible:ring-3 group-focus-visible:ring-ring/50",
+                    "spotlight h-full gap-0 p-4 group-focus-visible:ring-3 group-focus-visible:ring-ring/50",
                     LIFT,
-                    blocked > 0 && "spotlight-danger",
-                    AREA_ACCENT[area]
+                    blocked > 0 && "spotlight-danger"
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <h2 className="font-heading text-sm font-semibold">{PROJECT_AREA_LABELS[area]}</h2>
+                    <h2 className="flex items-center gap-2 font-heading text-sm font-semibold">
+                      <AreaDot area={area} />
+                      {PROJECT_AREA_LABELS[area]}
+                    </h2>
                     <ArrowDown
                       className="size-3.5 shrink-0 -translate-y-1 text-muted-foreground opacity-0 transition-[opacity,translate] duration-200 group-hover:translate-y-0.5 group-hover:opacity-100"
                       aria-hidden="true"
@@ -152,7 +163,7 @@ export default async function ProyectosPage({
           return (
             <section key={area} id={`area-${area}`} aria-labelledby={`area-${area}-title`} className="scroll-mt-4 space-y-3">
               <div className="flex items-center gap-2">
-                <span className={`h-4 border-l-4 ${AREA_ACCENT[area]}`} aria-hidden="true" />
+                <AreaDot area={area} />
                 <h2 id={`area-${area}-title`} className="font-heading text-sm font-semibold">{PROJECT_AREA_LABELS[area]}</h2>
                 <span className="font-mono text-xs text-muted-foreground">{areaProjects.length}</span>
               </div>
