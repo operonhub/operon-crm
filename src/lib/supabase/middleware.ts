@@ -35,8 +35,20 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
+  /**
+   * Endpoints que entran sin sesión porque los llama una máquina, no una
+   * persona: cada uno valida su propia credencial (token compartido en
+   * `/api/ingest`, firma HMAC en `/api/zernio`).
+   *
+   * Que esta lista quede corta no da un error visible, da algo peor: el
+   * proveedor recibe un redirect a /login, lo sigue, obtiene un 200 con HTML y
+   * da la entrega por buena. Los mensajes se pierden en silencio y no queda
+   * rastro en ningún lado.
+   */
   const isPublic =
-    pathname.startsWith("/login") || pathname.startsWith("/api/ingest")
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/ingest") ||
+    pathname.startsWith("/api/zernio")
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()
