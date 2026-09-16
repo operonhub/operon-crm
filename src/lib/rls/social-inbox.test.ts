@@ -182,6 +182,34 @@ describe("ingest_social_event — idempotencia", () => {
   })
 })
 
+describe("ingest_social_event — ids reales de Instagram", () => {
+  // Un id de mensaje de Instagram real mide 164 caracteres (Meta codifica la
+  // cuenta, el hilo y el mensaje). Con el tope original de 128, cada mensaje de
+  // Instagram rompía el check y el RPC deshacía la conversación entera.
+  const ID_INSTAGRAM = `aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlEOjE3ODQxNDQwNTU2OTI2NjY2`.padEnd(164, "Q")
+
+  it("acepta un mensaje con id de 164 caracteres", async () => {
+    const res = await ingest({
+      eventId: `backfill:${ID_INSTAGRAM}`,
+      conversation: {
+        externalId: "17841440556926666",
+        platform: "instagram",
+        participantExternalId: "u_ig",
+        participantName: "Santiago Guatelli",
+        participantHandle: null,
+        participantAvatarUrl: null,
+      },
+      message: entrante({ externalId: ID_INSTAGRAM, body: "Cómo está el ig" }),
+    })
+
+    expect(res.status).toBe("processed")
+    const [msg] = await db.admin<{ largo: number }>(
+      "select length(zernio_message_id) as largo from public.social_messages"
+    )
+    expect(msg.largo).toBe(164)
+  })
+})
+
 describe("ingest_social_event — estado de la conversación", () => {
   it("un saliente no suma al contador de sin leer", async () => {
     await ingest({
