@@ -33,8 +33,18 @@ function backfillEventId(messageId: string | null, conversationId: string): stri
   return `backfill:${messageId ?? `conv:${conversationId}`}`
 }
 
-/** Tope por corrida: el plan de Zernio permite 60 pedidos por minuto. */
-const MAX_CONVERSACIONES_POR_CORRIDA = 40
+/**
+ * Presupuesto de pedidos por corrida.
+ *
+ * El plan de Zernio permite 60 por minuto y cada conversación cuesta uno
+ * (traer sus mensajes), más uno por cuenta para listar. Se deja margen.
+ *
+ * Se reparte **en partes iguales entre las cuentas**, no por orden de llegada:
+ * con un tope global, una cuenta con cientos de conversaciones se lo consume
+ * entero y la otra no se importa nunca. Con 100+ chats de WhatsApp, Instagram
+ * quedaba esperando su turno indefinidamente.
+ */
+const PRESUPUESTO_POR_CORRIDA = 45
 const MENSAJES_POR_CONVERSACION = 50
 
 export async function backfillSocialInbox(): Promise<
@@ -82,27 +92,31 @@ export async function backfillSocialInbox(): Promise<
   let mensajes = 0
   let pendientes = 0
   let cortadoPorLimite = false
+  /** Cuántas se importaron de cada plataforma, para poder reportarlo. */
+  const porPlataforma: Record<string, number> = {}
+
+  const cupoPorCuenta = Math.max(5, Math.floor(PRESUPUESTO_POR_CORRIDA / accounts.length))
 
   for (const account of accounts) {
-    if (cortadoPorLimite) break
-
     const lista = await listConversations(
       { config },
       { accountId: account.zernio_account_id, limit: 100 }
     )
 
     if (!lista.ok) {
-      if (lista.code === "rate_limited") {
-        cortadoPorLimite = true
-        break
-      }
+      if (lista.code === "rate_limited") cortadoPorLimite = true
+      // No se corta el recorrido: la cuenta que sigue puede andar, y si el
+      // límite es global igual va a fallar rápido sin gastar nada.
       continue
     }
 
     const nuevas = lista.data.conversations.filter((c) => !yaEstan.has(c.externalId))
-    pendientes += Math.max(0, nuevas.length - MAX_CONVERSACIONES_POR_CORRIDA)
+    pendientes += Math.max(0, nuevas.length - cupoPorCuenta)
+    let cupoRestante = cupoPorCuenta
 
-    for (const conversation of nuevas.slice(0, MAX_CONVERSACIONES_POR_CORRIDA)) {
+    for (const conversation of nuevas) {
+      if (cupoRestante <= 0) break
+      cupoRestante -= 1
       const hilo = await listMessages(
         { config },
         {
@@ -119,6 +133,7 @@ export async function backfillSocialInbox(): Promise<
         }
         continue
       }
+
 
       // Del más viejo al más nuevo, para que los contadores y el último mensaje
       // de la conversación queden como si hubieran llegado en orden.
@@ -165,6 +180,7 @@ export async function backfillSocialInbox(): Promise<
         .eq("zernio_conversation_id", conversation.externalId)
 
       conversaciones += 1
+      porPlataforma[account.platform] = (porPlataforma[account.platform] ?? 0) + 1
       yaEstan.add(conversation.externalId)
     }
   }
@@ -186,13 +202,16 @@ export async function backfillSocialInbox(): Promise<
     }
   }
 
+  const desglose = Object.entries(porPlataforma)
+    .map(([plataforma, cantidad]) => `${cantidad} de ${plataforma}`)
+    .join(" y ")
   const restantes = pendientes + (cortadoPorLimite ? 1 : 0)
+
   return {
     ok: true,
     data: { conversaciones, mensajes, pendientes },
     message:
-      restantes > 0
-        ? `${conversaciones} conversaciones y ${mensajes} mensajes importados. Quedan más: volvé a tocar en un minuto.`
-        : `${conversaciones} conversaciones y ${mensajes} mensajes importados.`,
+      `${desglose || conversaciones} · ${mensajes} mensajes` +
+      (restantes > 0 ? ". Quedan más: volvé a tocar en un minuto." : "."),
   }
 }
