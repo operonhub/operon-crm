@@ -1,6 +1,7 @@
 import { BarChart3, BriefcaseBusiness, CircleDollarSign, FolderKanban } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
+import { KpiCard } from "@/components/shell/kpi-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ACTIVE_PROJECT_STATUSES,
@@ -19,6 +20,7 @@ import { addDaysISO, formatMoney, todayISO } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { Enums } from "@/lib/supabase/types"
+import { PageTransition } from "@/components/shell/page-transition"
 
 export default async function MetricasPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams
@@ -132,6 +134,7 @@ export default async function MetricasPage({ searchParams }: { searchParams: Pro
   ]
 
   return (
+    <PageTransition>
     <>
       <PageHeader title="Métricas" description="Indicadores reales para decidir, sin integraciones simuladas" />
       <div className="space-y-6 p-4 sm:p-6">
@@ -213,6 +216,7 @@ export default async function MetricasPage({ searchParams }: { searchParams: Pro
         </MetricSection>
       </div>
     </>
+    </PageTransition>
   )
 }
 
@@ -228,21 +232,37 @@ function MetricSection({ icon: Icon, title, children }: { icon: React.ElementTyp
 }
 
 function MetricCard({ label, value, detail, danger = false, href }: { label: string; value: string | number; detail?: string; danger?: boolean; href?: string }) {
-  const content = <Card className="h-full gap-0 p-4 transition-colors hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className={`mt-2 font-mono text-xl font-semibold tabular-nums ${danger ? "text-destructive" : ""}`}>{value}</p>{detail && <p className="mt-1 text-xs text-muted-foreground">{detail}</p>}</Card>
-  return href ? <Link href={href}>{content}</Link> : content
+  // Los números cuentan hacia arriba; los textos ("3 activos") se muestran tal cual.
+  return typeof value === "number" ? (
+    <KpiCard label={label} value={value} hint={detail} tone={danger ? "danger" : "default"} href={href} />
+  ) : (
+    <KpiCard label={label} display={value} hint={detail} tone={danger ? "danger" : "default"} href={href} />
+  )
 }
 
 function MoneyCard({ title, totals, danger = false, href }: { title: string; totals: MoneyByCurrency; danger?: boolean; href?: string }) {
-  const content = <Card className="h-full gap-0 p-4 transition-colors hover:border-primary/40"><p className="text-xs text-muted-foreground">{title}</p><div className={`mt-2 space-y-0.5 font-mono text-sm font-semibold tabular-nums ${danger && (totals.ARS > 0 || totals.USD > 0) ? "text-destructive" : ""}`}><p>{formatMoney(totals.ARS, "ARS")}</p><p>{formatMoney(totals.USD, "USD")}</p></div></Card>
-  return href ? <Link href={href}>{content}</Link> : content
+  const alert = danger && (totals.ARS > 0 || totals.USD > 0)
+  // Dos monedas juntas no se animan: contar dos números a la vez distrae más de lo que informa.
+  return (
+    <KpiCard
+      label={title}
+      tone={alert ? "danger" : "default"}
+      href={href}
+      display={
+        <span className="block space-y-1 text-base">
+          <span className="block">{formatMoney(totals.ARS, "ARS")}</span>
+          <span className="block text-muted-foreground">{formatMoney(totals.USD, "USD")}</span>
+        </span>
+      }
+    />
+  )
 }
 
 function Distribution({ title, rows }: { title: string; rows: { label: string; value: number; detail?: string }[] }) {
   const max = Math.max(1, ...rows.map((row) => row.value))
-  return <Card><CardHeader className="pb-3"><CardTitle className="text-sm">{title}</CardTitle></CardHeader><CardContent className="space-y-3">{rows.length === 0 ? <p className="text-sm text-muted-foreground">Sin datos.</p> : rows.map((row) => <div key={row.label} className="space-y-1"><div className="flex items-center justify-between gap-3 text-sm"><span>{row.label}</span><span className="text-xs text-muted-foreground">{row.value}{row.detail ? ` · ${row.detail}` : ""}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${(row.value / max) * 100}%` }} /></div></div>)}</CardContent></Card>
+  return <Card><CardHeader className="pb-3"><CardTitle className="text-sm">{title}</CardTitle></CardHeader><CardContent className="space-y-3">{rows.length === 0 ? <p className="text-sm text-muted-foreground">Sin datos.</p> : rows.map((row) => <div key={row.label} className="space-y-1"><div className="flex items-center justify-between gap-3 text-sm"><span>{row.label}</span><span className="text-xs text-muted-foreground">{row.value}{row.detail ? ` · ${row.detail}` : ""}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="chart-grow-x h-full bg-primary" style={{ width: `${(row.value / max) * 100}%` }} /></div></div>)}</CardContent></Card>
 }
 
 function FilterLabel({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="space-y-1.5"><span className="label-mono text-muted-foreground">{label}</span>{children}</label>
 }
-import Link from "next/link"

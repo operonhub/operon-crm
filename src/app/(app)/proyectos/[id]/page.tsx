@@ -25,6 +25,7 @@ import {
 } from "@/lib/constants"
 import { financialBalance, financialStatus, summarizeFinances } from "@/lib/finance"
 import { formatDate, formatMoney, todayISO } from "@/lib/format"
+import { PageTransition } from "@/components/shell/page-transition"
 
 const LINK_LABELS: Record<string, string> = {
   figma: "Figma",
@@ -125,6 +126,7 @@ export default async function ProjectDetailPage({
   const linkEntries = Object.entries(links).filter(([, v]) => v)
 
   return (
+    <PageTransition>
     <>
       <PageHeader title={project.name}>
         <ProjectOperationalDialog
@@ -321,6 +323,7 @@ export default async function ProjectDetailPage({
         </section>
       </div>
     </>
+    </PageTransition>
   )
 }
 

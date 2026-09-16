@@ -3,6 +3,7 @@ import { InboxWorkspace } from "@/components/inbox/inbox-workspace"
 import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { readZernioConfig } from "@/lib/zernio/config"
+import { PageTransition } from "@/components/shell/page-transition"
 
 const EMPTY = { data: [] as never[] }
 
@@ -141,12 +142,15 @@ export default async function InboxPage({
               "id, direction, body, attachments, delivery_status, sent_at, deleted_at, sender:profiles!social_messages_sent_by_fkey(full_name)"
             )
             .eq("conversation_id", selectedId)
-            .order("sent_at")
+            // Los 300 MÁS NUEVOS. Ordenar ascendente y cortar en 300 traía los
+            // más viejos: en un chat largo desaparecían justo los últimos.
+            .order("sent_at", { ascending: false })
             .limit(300)
         : EMPTY,
     ])
 
   return (
+    <PageTransition>
     <InboxWorkspace
       currentProfileId={user.id}
       tab={tab}
@@ -162,11 +166,13 @@ export default async function InboxPage({
       profiles={profilesRes.data ?? []}
       projects={projectsRes.data ?? []}
       socialConversations={socialConversations}
-      socialMessages={socialMessagesRes.data ?? []}
+      socialMessages={[...(socialMessagesRes.data ?? [])].reverse()}
       channel={channel}
       socialConfigured={zernio.configured}
       socialReason={zernio.configured ? null : zernio.reason}
       isAdmin={roleRes.data?.role === "admin"}
+      explicitSelection={Boolean(params.conversation) && params.conversation === selectedId}
     />
+    </PageTransition>
   )
 }

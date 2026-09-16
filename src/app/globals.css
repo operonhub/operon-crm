@@ -161,3 +161,118 @@
     @apply font-mono text-[10px] uppercase tracking-wider;
   }
 }
+
+/* ============================================================
+   Movimiento
+   Regla de la casa: el movimiento grande sólo en momentos pico; lo
+   repetido, casi imperceptible. Sólo transform y opacity (compositor),
+   nunca propiedades que disparen layout: por eso animar no cuesta
+   rendimiento.
+   ============================================================ */
+:root {
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------- Transiciones entre pantallas (React ViewTransition) ---------- */
+
+/* Mientras dura una transición, el overlay captura los clicks y se pierden.
+   En una herramienta de uso diario eso no puede pasar. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* Entrada de página: la vieja se va rápido para no competir; la nueva
+   llega un poco después y sube apenas. Asimetría a propósito. */
+::view-transition-old(.page-exit) {
+  animation: 120ms ease-in both vt-fade reverse;
+}
+::view-transition-new(.page-enter) {
+  animation:
+    220ms var(--ease-out-soft) 80ms both vt-fade,
+    380ms var(--ease-out-soft) both vt-rise;
+}
+
+/* El indicador de pestaña se desliza de una a otra. */
+::view-transition-group(.tab-indicator) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--ease-out-soft);
+}
+
+/* Cambiar de conversación: sólo fundido, sin desplazamiento. Es el mismo
+   lugar con otro contenido, y se hace decenas de veces por día. */
+::view-transition-old(.fade-out) {
+  animation: 90ms ease-in both vt-fade reverse;
+}
+::view-transition-new(.fade-in) {
+  animation: 160ms ease-out both vt-fade;
+}
+
+/* Tarjeta que se transforma en ficha. */
+::view-transition-group(.morph) {
+  animation-duration: 380ms;
+  animation-timing-function: var(--ease-out-soft);
+}
+
+@keyframes vt-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes vt-rise {
+  from { transform: translateY(10px); }
+  to { transform: translateY(0); }
+}
+
+/* ---------- Gráficos: se dibujan una vez al entrar ---------- */
+
+/* La línea se revela de izquierda a derecha. clip-path sólo repinta:
+   no recalcula layout. */
+.chart-reveal {
+  animation: chart-reveal 900ms var(--ease-out-soft) 150ms both;
+}
+.chart-grow {
+  transform-origin: bottom;
+  animation: chart-grow 620ms var(--ease-out-soft) both;
+}
+.chart-grow-x {
+  transform-origin: left;
+  animation: chart-grow-x 700ms var(--ease-out-soft) both;
+}
+@keyframes chart-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes chart-grow {
+  from { transform: scaleY(0); }
+}
+@keyframes chart-grow-x {
+  from { transform: scaleX(0); }
+}
+
+/* ---------- Movimiento reducido ---------- */
+/* Sin desplazamientos ni escalas. Los fundidos de tw-animate-css se
+   conservan (anular sus variables de traslado deja sólo la opacidad), y
+   las transiciones de pantalla pasan a ser instantáneas. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+  .animate-in,
+  .animate-out {
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-enter-scale: 1 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    --tw-exit-scale: 1 !important;
+  }
+  .chart-reveal {
+    animation: none;
+  }
+  .chart-grow,
+  .chart-grow-x {
+    animation: none;
+  }
+}

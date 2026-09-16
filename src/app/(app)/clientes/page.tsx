@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { PageHero } from "@/components/shell/page-hero"
 import {
   ArrowRight,
   CircleDollarSign,
@@ -20,6 +21,7 @@ import {
 import { financialStatus } from "@/lib/finance"
 import { formatDateShort, todayISO } from "@/lib/format"
 import { createClient } from "@/lib/supabase/server"
+import { PageTransition } from "@/components/shell/page-transition"
 
 type FinanceState = "up_to_date" | "pending" | "overdue" | "none"
 const FINANCE_LABEL: Record<FinanceState, string> = {
@@ -140,23 +142,20 @@ export default async function ClientsPage({
   })
 
   return (
+    <PageTransition>
     <div className="mx-auto w-full max-w-[1500px] p-4 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="label-mono text-primary">Relaciones</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em]">
-            Clientes
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {clients.length} de {allClients.length} clientes · datos, contactos,
-            proyectos, conversaciones y cobros.
-          </p>
-        </div>
-        <ClientCreateDialog
-          organizations={organizationsRes.data ?? []}
-          profiles={profilesRes.data ?? []}
-        />
-      </div>
+      <PageHero
+        inset={false}
+        eyebrow="Relaciones"
+        title="Clientes"
+        description={`${clients.length} de ${allClients.length} clientes · datos, contactos, proyectos, conversaciones y cobros.`}
+        actions={
+          <ClientCreateDialog
+            organizations={organizationsRes.data ?? []}
+            profiles={profilesRes.data ?? []}
+          />
+        }
+      />
 
       <form className="mt-6 grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_11rem_12rem_11rem_auto]">
         <label className="relative">
@@ -309,5 +308,6 @@ export default async function ClientsPage({
         </div>
       )}
     </div>
+    </PageTransition>
   )
 }

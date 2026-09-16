@@ -22,6 +22,7 @@ import type {
   FinancialRecordType,
   SupportedCurrency,
 } from "@/lib/constants"
+import { PageTransition } from "@/components/shell/page-transition"
 
 export default async function FinanzasPage() {
   const [supabase, user] = await Promise.all([createClient(), getSessionUser()])
@@ -103,6 +104,7 @@ export default async function FinanzasPage() {
   const isAdmin = currentProfileRes.data?.role === "admin"
 
   return (
+    <PageTransition>
     <>
       <PageHeader
         title="Finanzas"
@@ -143,6 +145,7 @@ export default async function FinanzasPage() {
         )}
       </div>
     </>
+    </PageTransition>
   )
 }
 function SummaryCell({

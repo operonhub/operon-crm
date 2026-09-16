@@ -23,7 +23,7 @@ export function DashboardHeader({
   return (
     <header className="px-3 pt-3 sm:px-5 sm:pt-5">
       <div
-        className={`${ENTER} relative isolate min-h-56 overflow-hidden rounded-2xl bg-[#14130F] px-5 pb-16 pt-6 text-[#FBF9F4] shadow-xl shadow-foreground/10 sm:px-8 sm:pb-20 sm:pt-8`}
+        className={`${ENTER} relative isolate min-h-56 overflow-hidden rounded-2xl bg-[#14130F] px-5 pb-16 pt-6 text-[#FBF9F4] shadow-xl shadow-foreground/10 ring-1 ring-white/5 dark:bg-[#1C1B16] dark:ring-white/10 sm:px-8 sm:pb-20 sm:pt-8`}
       >
         <OperonArc className="-right-24 -top-28" />
         <span className="absolute -bottom-24 right-24 size-44 rounded-full border-[28px] border-primary/25" />

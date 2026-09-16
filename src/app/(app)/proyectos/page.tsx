@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { PageHero } from "@/components/shell/page-hero"
 import { AlertTriangle, ArrowRight, CheckCircle2, Flag, ListChecks } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { ProjectCreateButton } from "@/components/projects/project-create-button"
@@ -19,6 +20,7 @@ import {
   type TaskLike,
 } from "@/lib/dashboard/utils"
 import { formatDateShort, todayISO } from "@/lib/format"
+import { PageTransition } from "@/components/shell/page-transition"
 
 const AREA_ACCENT: Record<ProjectArea, string> = {
   sites_ecommerce: "border-l-primary",
@@ -72,15 +74,15 @@ export default async function ProyectosPage({
   })
 
   return (
+    <PageTransition>
     <div className="mx-auto w-full max-w-[1500px] space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="label-mono text-primary">Entrega</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em]">Proyectos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Las cuatro áreas de Operon, con trabajo interno y de clientes.</p>
-        </div>
-        <ProjectCreateButton options={quickOptions} />
-      </div>
+      <PageHero
+        inset={false}
+        eyebrow="Entrega"
+        title="Proyectos"
+        description="Las cuatro áreas de Operon, con trabajo interno y de clientes."
+        actions={<ProjectCreateButton options={quickOptions} />}
+      />
       <form className="grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_11rem_12rem_11rem_auto]">
         <input name="q" defaultValue={params.q} placeholder="Buscar proyecto" className="h-9 rounded-lg border bg-transparent px-3 text-sm" />
         <select name="status" defaultValue={params.status ?? "all"} className="h-9 rounded-lg border bg-transparent px-3 text-sm"><option value="all">Todos los estados</option><option value="discovery">Discovery</option><option value="en_progreso">En progreso</option><option value="revision">Revisión</option><option value="activo">Activo</option><option value="pausado">Pausado</option><option value="cerrado">Cerrado</option></select>
@@ -170,6 +172,7 @@ export default async function ProyectosPage({
           )
         })}
     </div>
+    </PageTransition>
   )
 }
 

@@ -50,33 +50,42 @@ export function Sparkline({
   const primero = points[0]
   const ultimo = points[points.length - 1]
 
+  const ultimoY = ((ultimo.value - min) / range) * 100
+
   return (
     <figure className={cn("space-y-1", className)}>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        className="h-16 w-full overflow-visible"
-        role="img"
-        aria-label={`De ${primero.value} el ${primero.label} a ${ultimo.value} el ${ultimo.label}`}
-      >
-        <path d={area} fill="var(--chart-1)" opacity="0.12" />
-        <path
-          d={linea}
-          fill="none"
-          stroke="var(--chart-1)"
-          strokeWidth="1.5"
-          vectorEffect="non-scaling-stroke"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {/*
+        La línea se revela de izquierda a derecha con clip-path. No con
+        stroke-dasharray + pathLength: combinado con vector-effect
+        non-scaling-stroke, Chrome calcula los guiones en píxeles de pantalla y
+        la línea queda cortada en pedazos.
+      */}
+      <div className="relative h-16 w-full">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          className="chart-reveal absolute inset-0 size-full overflow-visible"
+          role="img"
+          aria-label={`De ${primero.value} el ${primero.label} a ${ultimo.value} el ${ultimo.label}`}
+        >
+          <path d={area} fill="var(--chart-1)" opacity="0.12" />
+          <path
+            d={linea}
+            fill="none"
+            stroke="var(--chart-1)"
+            strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        {/* El punto va en HTML: dentro de un SVG estirado sería un óvalo. */}
+        <span
+          aria-hidden="true"
+          className="animate-in fade-in zoom-in-50 absolute right-0 size-2 translate-x-1/2 translate-y-1/2 rounded-full bg-[var(--chart-1)] ring-2 ring-card delay-700 duration-300 fill-mode-both"
+          style={{ bottom: `${ultimoY}%` }}
         />
-        <circle
-          cx={W}
-          cy={H - ((ultimo.value - min) / range) * H}
-          r="2"
-          fill="var(--chart-1)"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
+      </div>
       <figcaption className="label-mono flex justify-between text-muted-foreground">
         <span>{primero.label}</span>
         <span>{ultimo.label}</span>
@@ -110,7 +119,7 @@ export function MeterRow({
         </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+        <div className="chart-grow-x h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
       </div>
     </div>
   )

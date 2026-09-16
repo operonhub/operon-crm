@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { PageHero } from "@/components/shell/page-hero"
 import { Bot, CircleAlert, CircleCheck, Clock3, ShieldCheck } from "lucide-react"
 import { AgentCreateDialog } from "@/components/agents/agent-create-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -9,6 +10,7 @@ import { roleLabel } from "@/lib/permissions"
 import { getSessionUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
+import { PageTransition } from "@/components/shell/page-transition"
 
 const STATUS_LABELS = {
   draft: "Borrador",
@@ -51,20 +53,22 @@ export default async function AgentsPage({
   const isAdmin = currentProfileRes.data?.role === "admin"
 
   return (
+    <PageTransition>
     <div className="mx-auto w-full max-w-[1500px] p-4 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="label-mono text-primary">Comunicación y sistemas</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em]">Agentes</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+      <PageHero
+        inset={false}
+        eyebrow="Comunicación y sistemas"
+        title="Agentes"
+        description={
+          <>
             Catálogo y control de permisos, ejecuciones y aprobaciones reales. Sin runner simulado.
-          </p>
-          <p className="label-mono mt-2 text-muted-foreground">
-            Tu rol: {roleLabel(currentProfileRes.data?.role ?? "operador")}
-          </p>
-        </div>
-        <AgentCreateDialog profiles={profilesRes.data ?? []} isAdmin={isAdmin} />
-      </div>
+            <span className="label-mono mt-2 block">
+              Tu rol: {roleLabel(currentProfileRes.data?.role ?? "operador")}
+            </span>
+          </>
+        }
+        actions={<AgentCreateDialog profiles={profilesRes.data ?? []} isAdmin={isAdmin} />}
+      />
 
       <form className="mt-6 grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-[minmax(12rem,1fr)_12rem_12rem_auto]">
         <Input name="q" defaultValue={params.q} placeholder="Buscar agente" />
@@ -116,6 +120,7 @@ export default async function AgentsPage({
         </div>
       )}
     </div>
+    </PageTransition>
   )
 }
 
