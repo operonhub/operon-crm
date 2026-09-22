@@ -192,6 +192,59 @@ export type FinancialStatus = keyof typeof FINANCIAL_STATUS_LABELS
 export const SUPPORTED_CURRENCIES = ["ARS", "USD"] as const
 export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number]
 
+export const FINANCE_EXCHANGE_RATE_TYPES = ["none", "official", "blue", "manual"] as const
+export type FinanceExchangeRateType = (typeof FINANCE_EXCHANGE_RATE_TYPES)[number]
+export const FINANCE_EXCHANGE_RATE_LABELS: Record<FinanceExchangeRateType, string> = {
+  none: "No aplica",
+  official: "Dólar oficial venta",
+  blue: "Dólar blue venta",
+  manual: "Cotización manual",
+}
+
+export const FINANCE_FREQUENCIES = ["monthly", "annual"] as const
+export type FinanceFrequency = (typeof FINANCE_FREQUENCIES)[number]
+export const FINANCE_FREQUENCY_LABELS: Record<FinanceFrequency, string> = {
+  monthly: "Mensual",
+  annual: "Anual",
+}
+
+export const FINANCE_PAYMENT_METHOD_TYPES = [
+  "cash",
+  "bank",
+  "credit_card",
+  "debit_card",
+  "wallet",
+  "other",
+] as const
+export type FinancePaymentMethodType = (typeof FINANCE_PAYMENT_METHOD_TYPES)[number]
+export const FINANCE_PAYMENT_METHOD_LABELS: Record<FinancePaymentMethodType, string> = {
+  cash: "Efectivo",
+  bank: "Cuenta bancaria",
+  credit_card: "Tarjeta de crédito",
+  debit_card: "Tarjeta de débito",
+  wallet: "Billetera virtual",
+  other: "Otro",
+}
+
+export const FINANCE_INCOME_CATEGORIES = [
+  "Instalación",
+  "Mantenimiento",
+  "Proyecto",
+  "Suscripción",
+  "Otro ingreso",
+] as const
+
+export const FINANCE_EXPENSE_CATEGORIES = [
+  "Infraestructura",
+  "Software e IA",
+  "Marketing",
+  "Comisiones",
+  "Impuestos",
+  "Equipamiento",
+  "Honorarios",
+  "Otro gasto",
+] as const
+
 // ---------- Plantillas de checklist por tipo de proyecto ----------
 export const PROJECT_TASK_TEMPLATES: Record<
   Enums<"service_type">,

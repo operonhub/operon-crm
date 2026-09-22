@@ -614,6 +614,44 @@ export type Database = {
           },
         ]
       }
+      business_units: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_units_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
           channel: string | null
@@ -1119,33 +1157,273 @@ export type Database = {
           },
         ]
       }
+      finance_partner_reimbursements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          financial_payment_id: string
+          id: string
+          note: string | null
+          payment_method_id: string | null
+          reimbursed_on: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          financial_payment_id: string
+          id?: string
+          note?: string | null
+          payment_method_id?: string | null
+          reimbursed_on?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          financial_payment_id?: string
+          id?: string
+          note?: string | null
+          payment_method_id?: string | null
+          reimbursed_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_partner_reimbursements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_partner_reimbursements_financial_payment_id_fkey"
+            columns: ["financial_payment_id"]
+            isOneToOne: true
+            referencedRelation: "financial_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_partner_reimbursements_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "finance_payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_payment_methods: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          institution: string | null
+          last_four: string | null
+          method_type: string
+          name: string
+          owner_label: string | null
+          owner_profile_id: string | null
+          owner_type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          institution?: string | null
+          last_four?: string | null
+          method_type: string
+          name: string
+          owner_label?: string | null
+          owner_profile_id?: string | null
+          owner_type?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          institution?: string | null
+          last_four?: string | null
+          method_type?: string
+          name?: string
+          owner_label?: string | null
+          owner_profile_id?: string | null
+          owner_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_payment_methods_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_payment_methods_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_recurring_items: {
+        Row: {
+          active: boolean
+          business_unit_id: string
+          category: string
+          client_id: string | null
+          concept: string
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          default_paid_by_profile_id: string | null
+          default_payment_method_id: string | null
+          end_date: string | null
+          exchange_rate_type: string
+          frequency: string
+          id: string
+          manual_exchange_rate: number | null
+          next_due_date: string
+          notes: string | null
+          project_id: string | null
+          recognition_months: number
+          record_type: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          business_unit_id: string
+          category: string
+          client_id?: string | null
+          concept: string
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          default_paid_by_profile_id?: string | null
+          default_payment_method_id?: string | null
+          end_date?: string | null
+          exchange_rate_type?: string
+          frequency?: string
+          id?: string
+          manual_exchange_rate?: number | null
+          next_due_date: string
+          notes?: string | null
+          project_id?: string | null
+          recognition_months?: number
+          record_type: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          business_unit_id?: string
+          category?: string
+          client_id?: string | null
+          concept?: string
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          default_paid_by_profile_id?: string | null
+          default_payment_method_id?: string | null
+          end_date?: string | null
+          exchange_rate_type?: string
+          frequency?: string
+          id?: string
+          manual_exchange_rate?: number | null
+          next_due_date?: string
+          notes?: string | null
+          project_id?: string | null
+          recognition_months?: number
+          record_type?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_recurring_items_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_recurring_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_recurring_items_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_recurring_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_payments: {
         Row: {
           amount: number
+          amount_ars: number | null
           created_at: string
           created_by: string | null
+          exchange_rate: number | null
+          exchange_rate_at: string | null
+          exchange_rate_type: string
           financial_record_id: string
           id: string
           note: string | null
+          paid_by_profile_id: string | null
           paid_on: string
+          payment_method_id: string | null
         }
         Insert: {
           amount: number
+          amount_ars?: number | null
           created_at?: string
           created_by?: string | null
+          exchange_rate?: number | null
+          exchange_rate_at?: string | null
+          exchange_rate_type?: string
           financial_record_id: string
           id?: string
           note?: string | null
+          paid_by_profile_id?: string | null
           paid_on?: string
+          payment_method_id?: string | null
         }
         Update: {
           amount?: number
+          amount_ars?: number | null
           created_at?: string
           created_by?: string | null
+          exchange_rate?: number | null
+          exchange_rate_at?: string | null
+          exchange_rate_type?: string
           financial_record_id?: string
           id?: string
           note?: string | null
+          paid_by_profile_id?: string | null
           paid_on?: string
+          payment_method_id?: string | null
         }
         Relationships: [
           {
@@ -1167,6 +1445,20 @@ export type Database = {
             columns: ["financial_record_id"]
             isOneToOne: false
             referencedRelation: "financial_records_operational"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_payments_paid_by_profile_id_fkey"
+            columns: ["paid_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_payments_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "finance_payment_methods"
             referencedColumns: ["id"]
           },
         ]
@@ -1228,66 +1520,109 @@ export type Database = {
       }
       financial_records: {
         Row: {
+          accrual_date: string
+          amount_ars: number | null
+          business_unit_id: string
           cancel_reason: string | null
           canceled_at: string | null
           canceled_by: string | null
+          category: string
           client_id: string | null
           concept: string
+          contact_id: string | null
           created_at: string
           created_by: string | null
           currency: string
+          default_paid_by_profile_id: string | null
+          default_payment_method_id: string | null
           due_date: string | null
+          exchange_rate: number | null
+          exchange_rate_at: string | null
+          exchange_rate_type: string
           id: string
           notes: string | null
           paid_amount: number
           paid_at: string | null
           project_id: string | null
+          recognition_months: number
           record_type: string
+          recurring_item_id: string | null
           total_amount: number
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          accrual_date?: string
+          amount_ars?: number | null
+          business_unit_id?: string
           cancel_reason?: string | null
           canceled_at?: string | null
           canceled_by?: string | null
+          category?: string
           client_id?: string | null
           concept: string
+          contact_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
+          default_paid_by_profile_id?: string | null
+          default_payment_method_id?: string | null
           due_date?: string | null
+          exchange_rate?: number | null
+          exchange_rate_at?: string | null
+          exchange_rate_type?: string
           id?: string
           notes?: string | null
           paid_amount?: number
           paid_at?: string | null
           project_id?: string | null
+          recognition_months?: number
           record_type: string
+          recurring_item_id?: string | null
           total_amount: number
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          accrual_date?: string
+          amount_ars?: number | null
+          business_unit_id?: string
           cancel_reason?: string | null
           canceled_at?: string | null
           canceled_by?: string | null
+          category?: string
           client_id?: string | null
           concept?: string
+          contact_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
+          default_paid_by_profile_id?: string | null
+          default_payment_method_id?: string | null
           due_date?: string | null
+          exchange_rate?: number | null
+          exchange_rate_at?: string | null
+          exchange_rate_type?: string
           id?: string
           notes?: string | null
           paid_amount?: number
           paid_at?: string | null
           project_id?: string | null
+          recognition_months?: number
           record_type?: string
+          recurring_item_id?: string | null
           total_amount?: number
           updated_at?: string
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "financial_records_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "financial_records_canceled_by_fkey"
             columns: ["canceled_by"]
@@ -1310,6 +1645,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "financial_records_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_default_paid_by_profile_id_fkey"
+            columns: ["default_paid_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_default_payment_method_id_fkey"
+            columns: ["default_payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "finance_payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "financial_records_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -1321,6 +1677,13 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_recurring_item_fkey"
+            columns: ["recurring_item_id"]
+            isOneToOne: false
+            referencedRelation: "finance_recurring_items"
             referencedColumns: ["id"]
           },
         ]

@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest"
 import {
+  advanceDueDate,
+  buildCollectionMessage,
+  economicAmountInMonth,
+  normalizeWhatsAppPhone,
   receivableHealth,
   financialBalance,
   financialStatus,
   summarizeFinances,
+  summarizeManagement,
   validateCancellation,
   validatePayment,
   type FinancialRecordLike,
@@ -41,6 +46,63 @@ describe("financialStatus", () => {
 
   it("no permite saldo negativo aunque el input externo sea inválido", () => {
     expect(financialBalance(record({ paid_amount: 1200 }))).toBe(0)
+  })
+})
+
+describe("resultado económico y caja", () => {
+  const record = {
+    record_type: "expense" as const,
+    canceled_at: null,
+    amount_ars: 120_000,
+    accrual_date: "2026-01-15",
+    recognition_months: 12,
+  }
+
+  it("prorratea un gasto anual en el resultado económico", () => {
+    expect(economicAmountInMonth(record, "2026-01")).toBe(10_000)
+    expect(economicAmountInMonth(record, "2026-12")).toBe(10_000)
+    expect(economicAmountInMonth(record, "2027-01")).toBe(0)
+  })
+
+  it("usa pagos parciales reales para caja y devengamientos para resultado", () => {
+    const summary = summarizeManagement(
+      [record, { ...record, record_type: "income", amount_ars: 50_000, recognition_months: 1 }],
+      [
+        { record_type: "income", amount_ars: 20_000, paid_on: "2026-01-04" },
+        { record_type: "expense", amount_ars: 7_000, paid_on: "2026-01-18" },
+      ],
+      "2026-01"
+    )
+    expect(summary.cashNetArs).toBe(13_000)
+    expect(summary.economicNetArs).toBe(40_000)
+  })
+})
+
+describe("recurrencias y WhatsApp", () => {
+  it("avanza fechas sin saltar febrero", () => {
+    expect(advanceDueDate("2027-01-31", "monthly")).toBe("2027-02-28")
+    expect(advanceDueDate("2024-02-29", "annual")).toBe("2025-02-28")
+  })
+
+  it("normaliza teléfonos y prepara un mensaje con conversión histórica", () => {
+    expect(normalizeWhatsAppPhone("+54 9 11 5555-1234")).toBe("5491155551234")
+    expect(buildCollectionMessage({
+      contactName: "Ana",
+      concept: "Mantenimiento septiembre",
+      amount: 30,
+      currency: "USD",
+      amountArs: 42_000,
+      exchangeRate: 1_400,
+      rateLabel: "dólar blue venta",
+      dueDate: "30/09/2026",
+    })).toContain("Ana")
+    expect(buildCollectionMessage({
+      concept: "Mantenimiento",
+      amount: 30,
+      currency: "USD",
+      amountArs: 42_000,
+      exchangeRate: 1_400,
+    })).toContain("42.000")
   })
 })
 

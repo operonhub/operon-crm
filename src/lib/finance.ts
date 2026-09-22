@@ -1,4 +1,5 @@
 import type {
+  FinanceFrequency,
   FinancialStatus,
   SupportedCurrency,
 } from "@/lib/constants"
@@ -112,6 +113,131 @@ export function validateCancellation(reason: string): FinancialValidation {
     return { ok: false, error: "Indicá el motivo de la cancelación." }
   }
   return { ok: true }
+}
+
+export type ManagementRecordLike = {
+  record_type: "income" | "expense"
+  canceled_at: string | null
+  amount_ars: number | null
+  accrual_date: string
+  recognition_months: number
+}
+
+export type ManagementPaymentLike = {
+  amount_ars: number | null
+  paid_on: string
+  record_type: "income" | "expense"
+}
+
+export type ManagementSummary = {
+  cashIncomeArs: number
+  cashExpenseArs: number
+  cashNetArs: number
+  economicIncomeArs: number
+  economicExpenseArs: number
+  economicNetArs: number
+  unconvertedItems: number
+}
+
+function monthIndex(value: string): number {
+  const [year, month] = value.slice(0, 7).split("-").map(Number)
+  return year * 12 + month - 1
+}
+
+export function economicAmountInMonth(
+  record: ManagementRecordLike,
+  month: string
+): number {
+  if (record.canceled_at || record.amount_ars == null) return 0
+  const recognitionMonths = Math.max(1, Number(record.recognition_months) || 1)
+  const offset = monthIndex(`${month}-01`) - monthIndex(record.accrual_date)
+  if (offset < 0 || offset >= recognitionMonths) return 0
+  return Number(record.amount_ars) / recognitionMonths
+}
+
+export function summarizeManagement(
+  records: ManagementRecordLike[],
+  payments: ManagementPaymentLike[],
+  month: string
+): ManagementSummary {
+  let cashIncomeArs = 0
+  let cashExpenseArs = 0
+  let economicIncomeArs = 0
+  let economicExpenseArs = 0
+  let unconvertedItems = 0
+
+  for (const payment of payments) {
+    if (!payment.paid_on.startsWith(month)) continue
+    if (payment.amount_ars == null) {
+      unconvertedItems += 1
+      continue
+    }
+    if (payment.record_type === "income") cashIncomeArs += Number(payment.amount_ars)
+    else cashExpenseArs += Number(payment.amount_ars)
+  }
+
+  for (const record of records) {
+    if (!record.canceled_at && record.amount_ars == null) {
+      unconvertedItems += 1
+      continue
+    }
+    const amount = economicAmountInMonth(record, month)
+    if (record.record_type === "income") economicIncomeArs += amount
+    else economicExpenseArs += amount
+  }
+
+  return {
+    cashIncomeArs,
+    cashExpenseArs,
+    cashNetArs: cashIncomeArs - cashExpenseArs,
+    economicIncomeArs,
+    economicExpenseArs,
+    economicNetArs: economicIncomeArs - economicExpenseArs,
+    unconvertedItems,
+  }
+}
+
+export function advanceDueDate(value: string, frequency: FinanceFrequency): string {
+  const [year, month, day] = value.split("-").map(Number)
+  const monthsToAdd = frequency === "monthly" ? 1 : 12
+  const targetMonthIndex = month - 1 + monthsToAdd
+  const targetYear = year + Math.floor(targetMonthIndex / 12)
+  const targetMonth = ((targetMonthIndex % 12) + 12) % 12
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(targetYear, targetMonth, Math.min(day, lastDay)))
+    .toISOString()
+    .slice(0, 10)
+}
+
+export function normalizeWhatsAppPhone(value: string | null | undefined) {
+  return (value ?? "").replace(/\D/g, "")
+}
+
+export function buildCollectionMessage(input: {
+  contactName?: string | null
+  concept: string
+  amount: number
+  currency: SupportedCurrency
+  amountArs?: number | null
+  exchangeRate?: number | null
+  rateLabel?: string | null
+  dueDate?: string | null
+}) {
+  const greeting = input.contactName ? `Hola ${input.contactName},` : "Hola,"
+  const original = new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: input.currency,
+    maximumFractionDigits: 2,
+  }).format(input.amount)
+  const rate = input.exchangeRate && input.amountArs
+    ? ` La cotización ${input.rateLabel ?? "seleccionada"} es $${input.exchangeRate.toLocaleString("es-AR")} por USD, por lo que el total es ${new Intl.NumberFormat("es-AR", {
+        style: "currency",
+        currency: "ARS",
+        maximumFractionDigits: 0,
+      }).format(input.amountArs)}.`
+    : ""
+  const due = input.dueDate ? ` Vence el ${input.dueDate}.` : ""
+  return `${greeting} te compartimos el cobro de ${input.concept} por ${original}.${rate}${due} Gracias.`
 }
 
 export type ReceivableHealth = {

@@ -14,7 +14,8 @@ MVP operativo. La navegación principal está organizada por las seis áreas de 
 - **Pipeline** — oportunidades y leads sin duplicar el modelo comercial.
 - **Proyectos** — Sites/E-commerce, Apps/SaaS, Automatizaciones/CRM y Assets/Brand.
 - **Métricas** — indicadores comerciales, operativos y financieros con datos reales.
-- **Finanzas** — ingresos/gastos, pagos, vencimientos y saldos separados por moneda.
+- **Finanzas** — caja real y resultado económico, ARS/USD con cotización histórica,
+  abonos recurrentes, líneas de negocio, medios de pago y cobranza asistida por WhatsApp.
 
 Fases históricas (ver plan de producto en `docs/`):
 
@@ -53,6 +54,11 @@ Migraciones versionadas en `supabase/migrations/` (orden por prefijo numérico):
 5. `0005_operational_crm.sql` — áreas/modalidad de proyectos + finanzas operativas.
 6. `0006_harden_ingest_dedupe.sql` — evita entidades huérfanas al reintentar ingestas.
 7. `0007_enable_data_api.sql` — expone `public` a PostgREST; RLS sigue protegiendo los datos.
+
+Las migraciones posteriores amplían estos módulos de forma aditiva. La migración
+`20260922041855_finance_management.sql` agrega la gestión financiera sin alterar
+movimientos anteriores. La cotización oficial/blue se consulta en DolarApi.com y
+se guarda en cada movimiento para conservar el valor histórico.
 
 Seed ficticio (no contiene datos reales): `supabase/seed.sql`.
 
