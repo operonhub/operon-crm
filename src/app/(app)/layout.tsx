@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { AppSidebar, MobileNav } from "@/components/app-sidebar"
+import { AppSidebar, MobileBottomNav, MobileNav } from "@/components/app-sidebar"
 import { RefreshOnFocus } from "@/components/refresh-on-focus"
 import { SpotlightTracker } from "@/components/shell/spotlight-tracker"
 import { AssistantMount } from "@/components/assistant/assistant-mount"
@@ -57,6 +57,7 @@ export default async function AppLayout({
         <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-muted/20">
           {children}
         </main>
+        <MobileBottomNav unreadCount={unreadCount} />
       </div>
       {/*
         Hermano de <main>, no hijo: dentro del slot `children` se remontaría en

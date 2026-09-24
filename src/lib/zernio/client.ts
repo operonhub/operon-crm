@@ -1,10 +1,12 @@
 import type { ZernioConfig } from "./config"
 import {
   parseContentPayload,
+  parseExternalPostsPayload,
   parseFollowerStats,
   parseStoriesPayload,
   type ContentSnapshot,
   type FollowerStats,
+  type NormalizedPost,
   type NormalizedStory,
 } from "./content"
 import {
@@ -398,7 +400,7 @@ export async function sendMessage(
  */
 export async function listContent(
   deps: ZernioDeps,
-  options: { accountId: string; limit?: number }
+  options: { accountId: string; limit?: number; page?: number }
 ): Promise<ZernioResult<ContentSnapshot>> {
   const response = await zernioRequest(
     "/analytics",
@@ -407,6 +409,10 @@ export async function listContent(
         platform: "instagram",
         accountId: options.accountId,
         limit: options.limit ?? 100,
+        page: options.page ?? 1,
+        // Es explícito para no depender de un cambio de default de Zernio: el
+        // CRM necesita tanto lo publicado con Zernio como lo publicado nativo.
+        source: "all",
       },
     },
     deps
@@ -417,6 +423,48 @@ export async function listContent(
   if (snapshot === null) return describeZernioFailure("malformed")
 
   return { ok: true, data: snapshot }
+}
+
+export type ExternalPostsSnapshot = {
+  posts: NormalizedPost[]
+  postsFound: number | null
+  postsSynced: number | null
+}
+
+/**
+ * Pide a Zernio que refresque los posts nativos recientes de la cuenta y los
+ * devuelve aun cuando Meta todavía no haya calculado alcance o impresiones.
+ */
+export async function syncExternalPosts(
+  deps: ZernioDeps,
+  options: { accountId: string }
+): Promise<ZernioResult<ExternalPostsSnapshot>> {
+  const response = await zernioRequest(
+    "/posts/sync-external",
+    { method: "POST", body: { accountId: options.accountId } },
+    deps
+  )
+  if (!response.ok) return response
+
+  const posts = parseExternalPostsPayload(response.data)
+  if (posts === null) return describeZernioFailure("malformed")
+
+  const root = response.data as {
+    synced?: { postsFound?: unknown; postsSynced?: unknown }
+  }
+  const count = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0
+      ? Math.trunc(value)
+      : null
+
+  return {
+    ok: true,
+    data: {
+      posts,
+      postsFound: count(root.synced?.postsFound),
+      postsSynced: count(root.synced?.postsSynced),
+    },
+  }
 }
 
 /**

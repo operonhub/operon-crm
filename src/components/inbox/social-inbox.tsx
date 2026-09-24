@@ -21,7 +21,10 @@ import {
   UserPlus,
 } from "lucide-react"
 import { toast } from "sonner"
-import { backfillSocialInbox } from "@/app/(app)/bandeja/backfill-actions"
+import {
+  backfillSocialInbox,
+  backfillSocialInboxIfStale,
+} from "@/app/(app)/bandeja/backfill-actions"
 import {
   convertConversationToLead,
   markSocialConversationRead,
@@ -252,12 +255,14 @@ export function SocialInbox({
   explicitSelection: boolean
 }) {
   const [pending, startTransition] = useTransition()
+  const [syncing, startSyncTransition] = useTransition()
   const [draft, setDraft] = useState("")
   const [query, setQuery] = useState("")
   const [scrolledUp, setScrolledUp] = useState(false)
   const [now] = useState(() => Date.now())
   const threadRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
+  const syncRunning = useRef(false)
 
   const [optimisticMessages, addOptimisticMessage] = useOptimistic(
     messages,
@@ -296,6 +301,39 @@ export function SocialInbox({
       await markSocialConversationRead(id)
     })
   }, [selected, explicitSelection, markReadOptimistic])
+
+  // El historial anterior al webhook se trae solo. El servidor comparte un
+  // enfriamiento de dos minutos, por eso este efecto puede ejecutarse al abrir
+  // la pantalla, volver a enfocarla o dejarla abierta sin duplicar pedidos.
+  useEffect(() => {
+    if (!isAdmin || !configured) return
+    let mounted = true
+
+    const sync = () => {
+      if (syncRunning.current) return
+      syncRunning.current = true
+      startSyncTransition(async () => {
+        try {
+          const result = await backfillSocialInboxIfStale()
+          if (mounted && "error" in result) toast.error(result.error)
+        } finally {
+          syncRunning.current = false
+        }
+      })
+    }
+
+    sync()
+    const interval = window.setInterval(sync, 2 * 60_000)
+    const onFocus = () => {
+      if (document.visibilityState === "visible") sync()
+    }
+    window.addEventListener("focus", onFocus)
+    return () => {
+      mounted = false
+      window.clearInterval(interval)
+      window.removeEventListener("focus", onFocus)
+    }
+  }, [configured, isAdmin])
 
   // Al cambiar de chat, arrancar abajo de todo: lo último es lo que importa.
   useEffect(() => {
@@ -409,11 +447,11 @@ export function SocialInbox({
           <Button
             variant="outline"
             size="sm"
-            disabled={pending}
+            disabled={pending || syncing}
             onClick={() => run(backfillSocialInbox)}
           >
             <DownloadCloud className="mr-1 size-4" aria-hidden="true" />
-            Importar historial
+            {pending || syncing ? "Actualizando…" : "Actualizar ahora"}
           </Button>
         )}
       </div>

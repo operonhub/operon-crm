@@ -55,6 +55,9 @@ export type ContentSnapshot = {
   totalPosts: number | null
   lastSync: string | null
   followerCount: number | null
+  /** Paginación de Analytics. `null` cuando Zernio no la informó. */
+  page: number | null
+  pages: number | null
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -116,6 +119,24 @@ export function normalizePostMetrics(input: unknown): NormalizedPostMetrics | nu
   // Un objeto vacío significa "sin insights todavía", no "rindió cero".
   if (Object.keys(raw).length === 0) return null
 
+  // `sync-external` devuelve `{ lastUpdated }` antes de que Instagram entregue
+  // insights. No es una métrica y convertirlo en una fila de ceros haría que la
+  // tarjeta pareciera haber rendido cero.
+  const metricKeys = [
+    "impressions",
+    "reach",
+    "likes",
+    "comments",
+    "shares",
+    "saves",
+    "views",
+    "follows",
+    "profileViews",
+    "igReelsAvgWatchTime",
+    "reelsSkipRate",
+  ]
+  if (!metricKeys.some((key) => key in raw)) return null
+
   return {
     impressions: count(raw.impressions),
     reach: count(raw.reach),
@@ -172,6 +193,7 @@ export function parseContentPayload(payload: unknown): ContentSnapshot | null {
   const overview = asRecord(root.overview)
   const cuentas = Array.isArray(root.accounts) ? root.accounts : []
   const primeraCuenta = asRecord(cuentas[0])
+  const pagination = asRecord(root.pagination)
 
   return {
     posts: lista
@@ -180,7 +202,23 @@ export function parseContentPayload(payload: unknown): ContentSnapshot | null {
     totalPosts: optionalNumber(overview?.totalPosts),
     lastSync: isoDate(overview?.lastSync),
     followerCount: primeraCuenta ? optionalNumber(primeraCuenta.followersCount) : null,
+    page: optionalNumber(pagination?.page),
+    pages: optionalNumber(pagination?.pages),
   }
+}
+
+/**
+ * `POST /posts/sync-external` devuelve posts recientes directamente desde
+ * Instagram. A diferencia de `/analytics`, no espera a que Meta termine los
+ * insights, por lo que es la fuente de verdad para que la grilla no oculte
+ * publicaciones nuevas.
+ */
+export function parseExternalPostsPayload(payload: unknown): NormalizedPost[] | null {
+  const root = asRecord(payload)
+  if (!root || !Array.isArray(root.posts)) return null
+  return root.posts
+    .map(normalizePost)
+    .filter((post): post is NormalizedPost => post !== null)
 }
 
 // ------------------------------------------------------------

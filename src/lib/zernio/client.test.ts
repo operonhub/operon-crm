@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { listAccounts, parseRetryAfter, zernioRequest, type ZernioDeps } from "./client"
+import { listAccounts, listContent, parseRetryAfter, syncExternalPosts, zernioRequest, type ZernioDeps } from "./client"
 import { readZernioConfig } from "./config"
 
 const CLAVE = `sk_${"a".repeat(64)}`
@@ -205,5 +205,37 @@ describe("listAccounts", () => {
 
     const [url] = llamar.mock.calls[0] as unknown as [string]
     expect(url).toContain("profileId=prof_1")
+  })
+})
+
+describe("contenido de Instagram", () => {
+  it("pagina Analytics y fija source=all", async () => {
+    const llamar = vi.fn(async () =>
+      json({ posts: [], pagination: { page: 2, pages: 3 } })
+    )
+    const res = await listContent(deps(llamar as never), { accountId: "acc_1", page: 2 })
+    expect(res.ok).toBe(true)
+    const [url] = llamar.mock.calls[0] as unknown as [string]
+    expect(url).toContain("page=2")
+    expect(url).toContain("source=all")
+  })
+
+  it("trae posts nativos recientes aunque Analytics todavía no tenga métricas", async () => {
+    const llamar = vi.fn(async () =>
+      json({
+        synced: { postsFound: 12, postsSynced: 12 },
+        posts: [{ _id: "p_1", platform: "instagram", mediaType: "image", analytics: { lastUpdated: "ahora" } }],
+      })
+    )
+    const res = await syncExternalPosts(deps(llamar as never), { accountId: "acc_1" })
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      expect(res.data.posts).toHaveLength(1)
+      expect(res.data.posts[0]?.metrics).toBeNull()
+      expect(res.data.postsFound).toBe(12)
+    }
+    const [url, init] = llamar.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toContain("/posts/sync-external")
+    expect(init.method).toBe("POST")
   })
 })

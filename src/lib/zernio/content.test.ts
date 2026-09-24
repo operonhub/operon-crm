@@ -3,6 +3,7 @@ import {
   formatOf,
   normalizePost,
   normalizePostMetrics,
+  parseExternalPostsPayload,
   normalizeStory,
   parseContentPayload,
   parseFollowerStats,
@@ -103,6 +104,11 @@ describe("normalizePost", () => {
     expect(post?.metrics).toBeNull()
     expect(post?.externalId).toBe(REEL_REAL._id)
   })
+
+  it("no inventa métricas cuando el refresco externo sólo informa la fecha", () => {
+    const post = normalizePost({ ...REEL_REAL, analytics: { lastUpdated: "2026-09-24" } })
+    expect(post?.metrics).toBeNull()
+  })
 })
 
 describe("normalizePostMetrics", () => {
@@ -135,6 +141,8 @@ describe("parseContentPayload", () => {
     expect(snapshot?.totalPosts).toBe(12)
     expect(snapshot?.followerCount).toBe(173)
     expect(snapshot?.lastSync).toBe("2026-09-16T01:00:40.409Z")
+    expect(snapshot?.page).toBe(1)
+    expect(snapshot?.pages).toBe(1)
   })
 
   it("conserva el total aunque lleguen menos posts que ese total", () => {
@@ -152,6 +160,21 @@ describe("parseContentPayload", () => {
 
   it("cero posts es una lista vacía, no un error", () => {
     expect(parseContentPayload({ posts: [] })?.posts).toEqual([])
+  })
+})
+
+describe("parseExternalPostsPayload", () => {
+  it("conserva posts recientes aunque todavía no tengan insights", () => {
+    const posts = parseExternalPostsPayload({
+      synced: { postsFound: 12 },
+      posts: [{ ...REEL_REAL, analytics: { lastUpdated: "2026-09-24" } }],
+    })
+    expect(posts).toHaveLength(1)
+    expect(posts?.[0]?.metrics).toBeNull()
+  })
+
+  it("rechaza una respuesta sin lista de posts", () => {
+    expect(parseExternalPostsPayload({ synced: {} })).toBeNull()
   })
 })
 

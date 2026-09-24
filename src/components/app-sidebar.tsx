@@ -62,6 +62,15 @@ const MARKETING_NAV: NavItem[] = [
   { href: "/redes", label: "Redes sociales", icon: Share2 },
 ]
 
+/** Las cuatro áreas de uso continuo quedan a un toque; el resto sigue en el drawer. */
+const MOBILE_PRIMARY_NAV: NavItem[] = [
+  { href: "/", label: "Hoy", icon: LayoutDashboard },
+  { href: "/bandeja", label: "Bandeja", icon: Inbox },
+  { href: "/oportunidades", label: "Pipeline", icon: Target, aliases: ["/leads"] },
+  { href: "/proyectos", label: "Proyectos", icon: FolderKanban },
+  { href: "/finanzas", label: "Finanzas", icon: WalletCards },
+]
+
 function isActive(pathname: string, item: NavItem) {
   if (item.href === "/") return pathname === "/"
   return [item.href, ...(item.aliases ?? [])].some((path) =>
@@ -286,5 +295,43 @@ export function MobileNav({
         <ThemeToggle />
       </div>
     </div>
+  )
+}
+
+export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
+  const pathname = usePathname()
+
+  return (
+    <nav
+      aria-label="Accesos principales"
+      className="grid h-16 shrink-0 grid-cols-5 border-t bg-background/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+    >
+      {MOBILE_PRIMARY_NAV.map((item) => {
+        const Icon = item.icon
+        const active = isActive(pathname, item)
+        const hasBadge = item.href === "/bandeja" && unreadCount > 0
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium transition-colors",
+              active ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            <span className="relative">
+              <Icon className="size-4" aria-hidden="true" />
+              {hasBadge && (
+                <span className="absolute -top-2 -right-3 flex min-w-4 items-center justify-center rounded-full bg-warning px-1 font-mono text-[9px] leading-4 text-foreground">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </span>
+            <span className="max-w-full truncate">{item.label}</span>
+          </Link>
+        )
+      })}
+    </nav>
   )
 }

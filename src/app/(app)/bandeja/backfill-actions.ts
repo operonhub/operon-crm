@@ -45,7 +45,34 @@ function backfillEventId(messageId: string | null, conversationId: string): stri
  * quedaba esperando su turno indefinidamente.
  */
 const PRESUPUESTO_POR_CORRIDA = 45
-const MENSAJES_POR_CONVERSACION = 50
+const MENSAJES_POR_CONVERSACION = 100
+const SYNC_KEY = "inbox_backfill"
+const AUTO_SYNC_AFTER_MS = 2 * 60_000
+// Cuatro pedidos simultáneos respetan el mínimo de 6 req/s de Zernio y evitan
+// que una sincronización de 40 chats deje una Server Action esperando un minuto.
+const CONCURRENCIA_POR_CUENTA = 4
+
+type InboxCursorState = {
+  cursors?: Record<string, string | null>
+  complete?: string[]
+}
+
+function readInboxCursorState(value: Json | null): InboxCursorState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+  const raw = value as Record<string, unknown>
+  const cursors =
+    raw.cursors && typeof raw.cursors === "object" && !Array.isArray(raw.cursors)
+      ? Object.fromEntries(
+          Object.entries(raw.cursors as Record<string, unknown>).flatMap(([key, cursor]) =>
+            typeof cursor === "string" || cursor === null ? [[key, cursor]] : []
+          )
+        )
+      : undefined
+  const complete = Array.isArray(raw.complete)
+    ? raw.complete.filter((id): id is string => typeof id === "string")
+    : undefined
+  return { cursors, complete }
+}
 
 export async function backfillSocialInbox(): Promise<
   ActionResult<{ conversaciones: number; mensajes: number; pendientes: number }>
@@ -81,6 +108,15 @@ export async function backfillSocialInbox(): Promise<
     }
   }
 
+  const { data: syncState } = await supabase
+    .from("social_sync_state")
+    .select("metadata")
+    .eq("sync_key", SYNC_KEY)
+    .maybeSingle()
+  const state = readInboxCursorState(syncState?.metadata ?? null)
+  const cursors = { ...(state.cursors ?? {}) }
+  const complete = new Set(state.complete ?? [])
+
   // Las conversaciones ya importadas se saltean: así una corrida cortada por
   // límite de pedidos continúa donde quedó en vez de empezar de cero.
   const { data: existentes } = await supabase
@@ -98,9 +134,15 @@ export async function backfillSocialInbox(): Promise<
   const cupoPorCuenta = Math.max(5, Math.floor(PRESUPUESTO_POR_CORRIDA / accounts.length))
 
   for (const account of accounts) {
+    if (complete.has(account.zernio_account_id)) continue
+
     const lista = await listConversations(
       { config },
-      { accountId: account.zernio_account_id, limit: 100 }
+      {
+        accountId: account.zernio_account_id,
+        cursor: cursors[account.zernio_account_id] ?? undefined,
+        limit: 100,
+      }
     )
 
     if (!lista.ok) {
@@ -112,11 +154,10 @@ export async function backfillSocialInbox(): Promise<
 
     const nuevas = lista.data.conversations.filter((c) => !yaEstan.has(c.externalId))
     pendientes += Math.max(0, nuevas.length - cupoPorCuenta)
-    let cupoRestante = cupoPorCuenta
-
-    for (const conversation of nuevas) {
-      if (cupoRestante <= 0) break
-      cupoRestante -= 1
+    const paraImportar = nuevas.slice(0, cupoPorCuenta)
+    for (let offset = 0; offset < paraImportar.length; offset += CONCURRENCIA_POR_CUENTA) {
+      const lote = paraImportar.slice(offset, offset + CONCURRENCIA_POR_CUENTA)
+      await Promise.all(lote.map(async (conversation) => {
       const hilo = await listMessages(
         { config },
         {
@@ -129,9 +170,8 @@ export async function backfillSocialInbox(): Promise<
       if (!hilo.ok) {
         if (hilo.code === "rate_limited") {
           cortadoPorLimite = true
-          break
         }
-        continue
+        return
       }
 
 
@@ -182,13 +222,42 @@ export async function backfillSocialInbox(): Promise<
       conversaciones += 1
       porPlataforma[account.platform] = (porPlataforma[account.platform] ?? 0) + 1
       yaEstan.add(conversation.externalId)
+      }))
+    }
+
+    // No se avanza de página hasta terminar ésta. Con eso, una corrida limitada
+    // retoma exactamente las conversaciones pendientes y no pierde las 55 que
+    // quedaban detrás del presupuesto. Una vez vaciada, recién toma el cursor
+    // opaco que devolvió Zernio para seguir con el historial más viejo.
+    const quedanEnPagina = nuevas.some((conversation) => !yaEstan.has(conversation.externalId))
+    if (!quedanEnPagina && lista.data.nextCursor) {
+      cursors[account.zernio_account_id] = lista.data.nextCursor
+    } else if (!quedanEnPagina) {
+      delete cursors[account.zernio_account_id]
+      complete.add(account.zernio_account_id)
     }
   }
 
-  await writeAudit(supabase, profileId, "social_conversation", null, "backfilled", {
-    conversaciones,
-    mensajes,
-  })
+  const now = new Date().toISOString()
+  const { error: syncError } = await supabase.from("social_sync_state").upsert(
+    {
+      sync_key: SYNC_KEY,
+      last_run_at: now,
+      last_success_at: cortadoPorLimite ? null : now,
+      last_error: cortadoPorLimite ? "Zernio pidió esperar por límite de pedidos." : null,
+      items_synced: conversaciones,
+      metadata: { cursors, complete: [...complete], pendientes },
+    },
+    { onConflict: "sync_key" }
+  )
+  if (syncError) return { error: "No se pudo guardar el estado de la sincronización." }
+
+  if (conversaciones > 0 || mensajes > 0) {
+    await writeAudit(supabase, profileId, "social_conversation", null, "backfilled", {
+      conversaciones,
+      mensajes,
+    })
+  }
 
   revalidatePath("/bandeja")
 
@@ -214,4 +283,31 @@ export async function backfillSocialInbox(): Promise<
       `${desglose || conversaciones} · ${mensajes} mensajes` +
       (restantes > 0 ? ". Quedan más: volvé a tocar en un minuto." : "."),
   }
+}
+
+/**
+ * Entrada automática de Bandeja. Conserva la autorización administrativa de
+ * la importación y evita que cada foco gaste pedidos a Zernio.
+ */
+export async function backfillSocialInboxIfStale(): Promise<
+  ActionResult<{ conversaciones: number; mensajes: number; pendientes: number; skipped?: boolean }>
+> {
+  let supabase
+  try {
+    const admin = await requireAdmin()
+    supabase = admin.supabase
+  } catch (error) {
+    return { error: authorizationMessage(error) }
+  }
+
+  const { data: state } = await supabase
+    .from("social_sync_state")
+    .select("last_run_at")
+    .eq("sync_key", SYNC_KEY)
+    .maybeSingle()
+  const lastRun = state?.last_run_at ? new Date(state.last_run_at).getTime() : 0
+  if (lastRun && Date.now() - lastRun < AUTO_SYNC_AFTER_MS) {
+    return { ok: true, data: { conversaciones: 0, mensajes: 0, pendientes: 0, skipped: true } }
+  }
+  return backfillSocialInbox()
 }

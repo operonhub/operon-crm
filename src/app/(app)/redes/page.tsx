@@ -6,6 +6,7 @@ import { KpiCard } from "@/components/shell/kpi-card"
 import { PageHero } from "@/components/shell/page-hero"
 import { UrlTabs } from "@/components/shell/url-tabs"
 import { SyncContentButton } from "@/components/social/sync-content-button"
+import { AutoSocialContentSync } from "@/components/social/auto-social-sync"
 import { Sparkline, MeterRow } from "@/components/charts/sparkline"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -184,6 +185,7 @@ export default async function RedesPage({
   return (
     <PageTransition>
     <>
+    <AutoSocialContentSync enabled={isAdmin && zernio.configured} />
     <PageHero
       tone="featured"
       eyebrow="Marketing"
@@ -193,7 +195,7 @@ export default async function RedesPage({
           Redes sociales
         </span>
       }
-      description="Lo que publicó Operon en Instagram y cómo rindió. Los datos se sincronizan: la pantalla nunca consulta a Instagram en vivo."
+      description="Las publicaciones se actualizan automáticamente desde Instagram; las métricas aparecen cuando Meta las termina de procesar."
       actions={isAdmin && zernio.configured ? <SyncContentButton /> : undefined}
     />
     <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-6">
