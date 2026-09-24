@@ -165,12 +165,20 @@ alter table public.financial_payments
   add column exchange_rate numeric(14,4),
   add column exchange_rate_at timestamptz;
 
+-- Los pagos existentes ya están protegidos por el trigger inmutable de 0008.
+-- Durante esta migración sólo se completa su representación histórica en ARS;
+-- el bloque forma parte de la misma transacción y el trigger vuelve a quedar
+-- activo antes de que la migración termine.
+alter table public.financial_payments disable trigger financial_payments_immutable;
+
 update public.financial_payments fp
 set amount_ars = fp.amount
 from public.financial_records fr
 where fr.id = fp.financial_record_id
   and fr.currency = 'ARS'
   and fp.amount_ars is null;
+
+alter table public.financial_payments enable trigger financial_payments_immutable;
 
 alter table public.financial_payments
   add constraint financial_payments_amount_ars_check
