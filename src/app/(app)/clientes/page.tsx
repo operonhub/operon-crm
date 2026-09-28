@@ -38,18 +38,20 @@ export default async function ClientsPage({
     q?: string
     status?: string
     owner?: string
+    unit?: string
     archived?: string
   }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
-  const [clientsRes, financeRes, profilesRes, organizationsRes] =
+  const [clientsRes, financeRes, profilesRes, organizationsRes, businessUnitsRes] =
     await Promise.all([
       supabase
         .from("clients")
         .select(
-          `id, status, notes, archived_at, archive_reason, owner_id,
+          `id, status, notes, archived_at, archive_reason, owner_id, business_unit_id,
            owner:profiles!clients_owner_id_fkey(full_name),
+           business_unit:business_units!clients_business_unit_id_fkey(id, name, code),
            organization:organizations(
              id, name, domain,
              contacts(id, full_name, email, phone),
@@ -65,6 +67,7 @@ export default async function ClientsPage({
         ),
       supabase.from("profiles").select("id, full_name").order("full_name"),
       supabase.from("organizations").select("id, name").order("name"),
+      supabase.from("business_units").select("id, name, code").eq("active", true).order("name"),
     ])
 
   const today = todayISO()
@@ -106,9 +109,13 @@ export default async function ClientsPage({
         : statuses.length > 0
           ? "up_to_date"
           : "none"
+    const businessUnit = Array.isArray(client.business_unit)
+      ? client.business_unit[0] ?? null
+      : client.business_unit
 
     return {
       ...client,
+      businessUnit,
       projects,
       areas,
       mainContact: client.organization?.contacts?.[0] ?? null,
@@ -125,6 +132,8 @@ export default async function ClientsPage({
     if (params.status && params.status !== "all" && client.status !== params.status)
       return false
     if (params.owner && params.owner !== "all" && client.owner_id !== params.owner)
+      return false
+    if (params.unit && params.unit !== "all" && client.business_unit_id !== params.unit)
       return false
     if (query) {
       const searchable = [
@@ -153,11 +162,12 @@ export default async function ClientsPage({
           <ClientCreateDialog
             organizations={organizationsRes.data ?? []}
             profiles={profilesRes.data ?? []}
+            businessUnits={businessUnitsRes.data ?? []}
           />
         }
       />
 
-      <form className="mt-6 grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_11rem_12rem_11rem_auto]">
+      <form className="mt-6 grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_11rem_12rem_12rem_11rem_auto]">
         <label className="relative">
           <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
           <Input
@@ -200,6 +210,10 @@ export default async function ClientsPage({
           <option value="archived">Archivados</option>
           <option value="all">Todos</option>
         </select>
+        <select name="unit" defaultValue={params.unit ?? "all"} className="h-9 rounded-lg border bg-transparent px-3 text-sm">
+          <option value="all">Todos los negocios</option>
+          {(businessUnitsRes.data ?? []).map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
+        </select>
         <button className="h-9 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">
           Filtrar
         </button>
@@ -233,6 +247,7 @@ export default async function ClientsPage({
                       <Badge variant="secondary">
                         {CLIENT_STATUS_LABELS[client.status]}
                       </Badge>
+                      {client.businessUnit?.name && <Badge variant="outline">{client.businessUnit.name}</Badge>}
                       {client.archived_at && (
                         <Badge variant="outline">Archivado</Badge>
                       )}

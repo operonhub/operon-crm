@@ -50,6 +50,7 @@ export type FinanceRow = {
   recordType: FinancialRecordType
   concept: string
   category: string
+  expenseKind: "fixed" | "variable" | null
   currency: SupportedCurrency
   total: number
   amountArs: number | null
@@ -178,6 +179,7 @@ function RecordDialog({ record, options, isAdmin, onClose }: { record: FinanceRo
             <input type="hidden" name="record_id" value={record.id} />
             <Field label="Concepto" wide><Input name="concept" required defaultValue={record.concept} /></Field>
             <Field label="Categoría"><Input name="category" required defaultValue={record.category} /></Field>
+            {record.recordType === "expense" && <Field label="Comportamiento"><select name="expense_kind" className={selectClass} defaultValue={record.expenseKind ?? "fixed"}><option value="fixed">Gasto fijo</option><option value="variable">Costo variable</option></select></Field>}
             <Field label="Línea"><OptionalSelect name="business_unit_id" options={options.businessUnits} empty="Elegir" defaultValue={record.businessUnitId} required /></Field>
             <Field label="Total"><Input name="total_amount" type="number" min={record.paid} step="0.01" required defaultValue={record.total} /></Field>
             <Field label="Moneda"><select name="currency" className={selectClass} defaultValue={record.currency}><option value="ARS">ARS</option><option value="USD">USD</option></select></Field>

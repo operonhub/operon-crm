@@ -6,6 +6,7 @@ import { Plus, UsersRound } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/app/(app)/clientes/actions"
 import type { ActionResult } from "@/lib/action-result"
+import { todayISO } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -33,12 +34,16 @@ type State = ActionResult<{ clientId: string }> | null
 export function ClientCreateDialog({
   organizations,
   profiles,
+  businessUnits,
 }: {
   organizations: { id: string; name: string }[]
   profiles: { id: string; full_name: string }[]
+  businessUnits: { id: string; name: string; code: string }[]
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [businessUnitId, setBusinessUnitId] = useState(businessUnits[0]?.id ?? "")
+  const [maintenanceCurrency, setMaintenanceCurrency] = useState("ARS")
   const [state, action, pending] = useActionState<State, FormData>(createClient, null)
 
   useEffect(() => {
@@ -47,6 +52,9 @@ export function ClientCreateDialog({
     queueMicrotask(() => setOpen(false))
     if (state.data?.clientId) router.push(`/clientes/${state.data.clientId}`)
   }, [router, state])
+
+  const selectedUnit = businessUnits.find((unit) => unit.id === businessUnitId)
+  const isOperonReservas = selectedUnit?.code === "operon_reserva"
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -59,12 +67,30 @@ export function ClientCreateDialog({
         <form action={action} className="space-y-4">
           {organizations.length > 0 && <div className="space-y-1.5"><Label>Empresa existente</Label><Select name="organization_id" items={Object.fromEntries(organizations.map((item) => [item.id, item.name]))}><SelectTrigger><SelectValue placeholder="Sin elegir" /></SelectTrigger><SelectContent>{organizations.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>}
           <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="client-business-unit">Línea de negocio</Label>
+              <select id="client-business-unit" name="business_unit_id" value={businessUnitId} onChange={(event) => setBusinessUnitId(event.target.value)} className="h-9 w-full rounded-lg border bg-background px-3 text-sm" required>
+                {businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
+              </select>
+            </div>
             <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="client-company">O crear empresa</Label><Input id="client-company" name="organization_name" /></div>
             <div className="space-y-1.5"><Label htmlFor="client-web">Sitio web</Label><Input id="client-web" name="website" type="url" placeholder="https://" /></div>
             <div className="space-y-1.5"><Label htmlFor="client-industry">Rubro</Label><Input id="client-industry" name="industry" /></div>
             <div className="space-y-1.5"><Label htmlFor="client-city">Ciudad</Label><Input id="client-city" name="city" /></div>
             <div className="space-y-1.5"><Label htmlFor="client-country">País</Label><Input id="client-country" name="country" defaultValue="Argentina" /></div>
           </div>
+          {isOperonReservas && <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div>
+              <p className="text-sm font-semibold">Mantenimiento obligatorio</p>
+              <p className="text-xs text-muted-foreground">Todo cliente de Operon Reservas queda con un abono mensual desde el alta.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1.5"><Label htmlFor="client-maintenance-amount">Abono mensual</Label><Input id="client-maintenance-amount" name="maintenance_amount" type="number" min="0.01" step="0.01" required /></div>
+              <div className="space-y-1.5"><Label htmlFor="client-maintenance-currency">Moneda</Label><select id="client-maintenance-currency" name="maintenance_currency" value={maintenanceCurrency} onChange={(event) => setMaintenanceCurrency(event.target.value)} className="h-9 w-full rounded-lg border bg-background px-3 text-sm"><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+              <div className="space-y-1.5"><Label htmlFor="client-maintenance-due">Primer vencimiento</Label><Input id="client-maintenance-due" name="maintenance_next_due_date" type="date" defaultValue={todayISO()} required /></div>
+            </div>
+            {maintenanceCurrency === "USD" && <div className="space-y-1.5"><Label htmlFor="client-maintenance-rate">Cotización al cobrar</Label><select id="client-maintenance-rate" name="maintenance_exchange_rate_type" className="h-9 w-full rounded-lg border bg-background px-3 text-sm"><option value="official">Dólar oficial venta</option><option value="blue">Dólar blue venta</option></select></div>}
+          </div>}
           <div className="space-y-1.5"><Label>Responsable</Label><Select name="owner_id" items={Object.fromEntries(profiles.map((item) => [item.id, item.full_name]))}><SelectTrigger><SelectValue placeholder="Yo" /></SelectTrigger><SelectContent>{profiles.map((item) => <SelectItem key={item.id} value={item.id}>{item.full_name}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1.5"><Label htmlFor="client-notes-full">Notas</Label><Textarea id="client-notes-full" name="notes" rows={3} /></div>
           {state && "error" in state && <div className="space-y-2"><p className="text-sm text-destructive">{state.error}</p>{state.fieldErrors?.duplicate_confirmed && <label className="flex items-center gap-2 text-sm"><Checkbox name="duplicate_confirmed" />Confirmo que es otra empresa</label>}</div>}

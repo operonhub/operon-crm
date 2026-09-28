@@ -707,6 +707,7 @@ export type Database = {
           archive_reason: string | null
           archived_at: string | null
           archived_by: string | null
+          business_unit_id: string
           created_at: string
           created_by: string | null
           id: string
@@ -722,6 +723,7 @@ export type Database = {
           archive_reason?: string | null
           archived_at?: string | null
           archived_by?: string | null
+          business_unit_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -737,6 +739,7 @@ export type Database = {
           archive_reason?: string | null
           archived_at?: string | null
           archived_by?: string | null
+          business_unit_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1187,6 +1190,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "clients_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "finance_partner_reimbursements_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -1287,6 +1297,7 @@ export type Database = {
           default_payment_method_id: string | null
           end_date: string | null
           exchange_rate_type: string
+          expense_kind: string | null
           frequency: string
           id: string
           manual_exchange_rate: number | null
@@ -1312,6 +1323,7 @@ export type Database = {
           default_payment_method_id?: string | null
           end_date?: string | null
           exchange_rate_type?: string
+          expense_kind?: string | null
           frequency?: string
           id?: string
           manual_exchange_rate?: number | null
@@ -1337,6 +1349,7 @@ export type Database = {
           default_payment_method_id?: string | null
           end_date?: string | null
           exchange_rate_type?: string
+          expense_kind?: string | null
           frequency?: string
           id?: string
           manual_exchange_rate?: number | null
@@ -1539,6 +1552,7 @@ export type Database = {
           exchange_rate: number | null
           exchange_rate_at: string | null
           exchange_rate_type: string
+          expense_kind: string | null
           id: string
           notes: string | null
           paid_amount: number
@@ -1571,6 +1585,7 @@ export type Database = {
           exchange_rate?: number | null
           exchange_rate_at?: string | null
           exchange_rate_type?: string
+          expense_kind?: string | null
           id?: string
           notes?: string | null
           paid_amount?: number
@@ -1603,6 +1618,7 @@ export type Database = {
           exchange_rate?: number | null
           exchange_rate_at?: string | null
           exchange_rate_type?: string
+          expense_kind?: string | null
           id?: string
           notes?: string | null
           paid_amount?: number
@@ -3175,6 +3191,19 @@ export type Database = {
       }
     }
     Functions: {
+      create_client_with_maintenance: {
+        Args: {
+          p_business_unit_id: string
+          p_exchange_rate_type?: string | null
+          p_maintenance_amount?: number | null
+          p_maintenance_currency?: string | null
+          p_maintenance_next_due_date?: string | null
+          p_notes: string | null
+          p_organization_id: string
+          p_owner_id: string
+        }
+        Returns: string
+      }
       create_internal_notification: {
         Args: {
           p_body?: string

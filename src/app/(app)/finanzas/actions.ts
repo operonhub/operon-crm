@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import type { ActionResult } from "@/lib/action-result"
 import { writeAudit } from "@/lib/audit"
-import { authorizationMessage, requireAdmin } from "@/lib/auth"
+import { authorizationMessage, requireAdmin, requireMember } from "@/lib/auth"
 import {
   FINANCE_EXCHANGE_RATE_TYPES,
   FINANCE_FREQUENCIES,
@@ -114,7 +114,7 @@ export async function createFinancialRecord(
   fd: FormData
 ): Promise<ActionResult> {
   try {
-    const { supabase, profile } = await requireAdmin()
+    const { supabase, profile } = await requireMember()
     const concept = str(fd, "concept")
     const recordType = str(fd, "record_type") as FinancialRecordType
     const currency = str(fd, "currency") as SupportedCurrency
@@ -122,12 +122,13 @@ export async function createFinancialRecord(
     const initialPayment = amount(fd, "paid_amount")
     const dueDate = str(fd, "due_date")
     const paidOn = str(fd, "paid_at")
-    const clientId = str(fd, "client_id")
+    let clientId = str(fd, "client_id")
     const projectId = str(fd, "project_id")
     const notes = str(fd, "notes")
     const businessUnitId = str(fd, "business_unit_id")
-    const contactId = str(fd, "contact_id")
+    let contactId = str(fd, "contact_id")
     const category = str(fd, "category")
+    const expenseKind = recordType === "expense" ? str(fd, "expense_kind") : null
     const accrualDate = str(fd, "accrual_date")
     const recognitionMonths = integer(fd, "recognition_months")
     const rateType = (currency === "ARS" ? "none" : str(fd, "exchange_rate_type")) as FinanceExchangeRateType
@@ -153,6 +154,9 @@ export async function createFinancialRecord(
     if (!businessUnitId || !category || !accrualDate) {
       return { error: "Completá línea de negocio, categoría y fecha económica." }
     }
+    if (recordType === "expense" && expenseKind !== "fixed" && expenseKind !== "variable") {
+      return { error: "Indicá si es un gasto fijo o un costo variable." }
+    }
     if (recognitionMonths < 1 || recognitionMonths > 120) {
       return { error: "El devengamiento debe distribuirse entre 1 y 120 meses." }
     }
@@ -162,6 +166,55 @@ export async function createFinancialRecord(
       snapshot = await moneySnapshot(currency, totalAmount, rateType, amount(fd, "manual_exchange_rate"))
     } catch (error) {
       return { error: error instanceof Error ? error.message : "No se pudo cotizar el movimiento." }
+    }
+
+    if (recordType === "income" && fd.get("create_new_client") === "on") {
+      const newClientName = str(fd, "new_client_name")
+      if (!newClientName) return { error: "Escribí el nombre del cliente nuevo." }
+      const { data: organization, error: organizationError } = await supabase
+        .from("organizations")
+        .insert({ name: newClientName })
+        .select("id")
+        .single()
+      if (organizationError || !organization) {
+        return { error: organizationError?.message ?? "No se pudo crear la empresa del cliente." }
+      }
+
+      const { data: createdClientId, error: clientError } = await supabase.rpc("create_client_with_maintenance", {
+        p_organization_id: organization.id,
+        p_owner_id: profile.id,
+        p_notes: "Creado junto con un ingreso desde Finanzas",
+        p_business_unit_id: businessUnitId,
+        p_maintenance_amount: amount(fd, "maintenance_amount") || null,
+        p_maintenance_currency: str(fd, "maintenance_currency") || null,
+        p_maintenance_next_due_date: str(fd, "maintenance_next_due_date") || null,
+        p_exchange_rate_type: str(fd, "maintenance_exchange_rate_type") || null,
+      })
+      if (clientError || !createdClientId) {
+        return { error: clientError?.message ?? "No se pudo crear el cliente." }
+      }
+      clientId = createdClientId
+
+      const newContactName = str(fd, "new_contact_name")
+      const newContactPhone = str(fd, "new_contact_phone")
+      if (newContactName || newContactPhone) {
+        const { data: contact, error: contactError } = await supabase
+          .from("contacts")
+          .insert({
+            organization_id: organization.id,
+            full_name: newContactName || newClientName,
+            phone: newContactPhone || null,
+          })
+          .select("id")
+          .single()
+        if (contactError) return { error: `Cliente creado, pero no se pudo agregar el contacto: ${contactError.message}` }
+        contactId = contact.id
+      }
+      await writeAudit(supabase, profile.id, "client", clientId, "created", {
+        organization_id: organization.id,
+        business_unit_id: businessUnitId,
+        source: "finance",
+      })
     }
 
     const { data: record, error } = await supabase
@@ -181,6 +234,7 @@ export async function createFinancialRecord(
         recognition_months: recognitionMonths,
         business_unit_id: businessUnitId,
         category,
+        expense_kind: expenseKind,
         contact_id: contactId || null,
         default_payment_method_id: paymentMethodId || null,
         default_paid_by_profile_id: recordType === "expense" ? paidByProfileId || null : null,
@@ -435,12 +489,16 @@ export async function updateFinancialRecord(
     }
     const { data: current } = await supabase
       .from("financial_records")
-      .select("paid_amount")
+      .select("paid_amount, record_type")
       .eq("id", recordId)
       .single()
     if (!current) return { error: "Movimiento no encontrado." }
     if (totalAmount < Number(current.paid_amount)) {
       return { error: "El total no puede ser menor que los pagos registrados." }
+    }
+    const expenseKind = current.record_type === "expense" ? str(fd, "expense_kind") : null
+    if (current.record_type === "expense" && expenseKind !== "fixed" && expenseKind !== "variable") {
+      return { error: "Indicá si es gasto fijo o costo variable." }
     }
     let snapshot
     try {
@@ -463,6 +521,7 @@ export async function updateFinancialRecord(
         recognition_months: recognitionMonths,
         business_unit_id: businessUnitId,
         category,
+        expense_kind: expenseKind,
         contact_id: contactId || null,
         default_payment_method_id: str(fd, "payment_method_id") || null,
         default_paid_by_profile_id: str(fd, "paid_by_profile_id") || null,
@@ -536,6 +595,7 @@ export async function createFinanceRecurringItem(
     const frequency = str(fd, "frequency") as FinanceFrequency
     const totalAmount = amount(fd, "total_amount")
     const rateType = (currency === "ARS" ? "none" : str(fd, "exchange_rate_type")) as FinanceExchangeRateType
+    const expenseKind = recordType === "expense" ? str(fd, "expense_kind") : null
     if (recordType !== "income" && recordType !== "expense") return { error: "Tipo inválido." }
     if (!SUPPORTED_CURRENCIES.includes(currency)) return { error: "Moneda inválida." }
     if (!FINANCE_FREQUENCIES.includes(frequency)) return { error: "Frecuencia inválida." }
@@ -543,6 +603,9 @@ export async function createFinanceRecurringItem(
       return { error: "Completá concepto, línea y próximo vencimiento." }
     }
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) return { error: "El monto debe ser mayor que cero." }
+    if (recordType === "expense" && expenseKind !== "fixed" && expenseKind !== "variable") {
+      return { error: "Indicá si es gasto fijo o costo variable." }
+    }
     if (currency === "USD" && (!FINANCE_EXCHANGE_RATE_TYPES.includes(rateType) || rateType === "none")) {
       return { error: "Elegí la cotización del abono." }
     }
@@ -554,6 +617,7 @@ export async function createFinanceRecurringItem(
       contact_id: str(fd, "contact_id") || null,
       concept: str(fd, "concept"),
       category: str(fd, "category") || (recordType === "income" ? "Otro ingreso" : "Otro gasto"),
+      expense_kind: expenseKind,
       total_amount: totalAmount,
       currency,
       frequency,
@@ -591,6 +655,7 @@ export async function generateFinanceRecurringRecord(fd: FormData): Promise<void
     record_type: item.record_type,
     concept: item.concept,
     category: item.category,
+    expense_kind: item.expense_kind,
     currency,
     total_amount: item.total_amount,
     paid_amount: 0,

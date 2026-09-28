@@ -15,6 +15,11 @@ function str(fd: FormData, key: string): string {
   return String(fd.get(key) ?? "").trim()
 }
 
+function amount(fd: FormData, key: string): number {
+  const value = Number(str(fd, key).replace(",", "."))
+  return Number.isFinite(value) ? value : 0
+}
+
 export async function createClient(
   _prev: unknown,
   fd: FormData
@@ -26,6 +31,8 @@ export async function createClient(
     const website = str(fd, "website")
     const domain = normalizeDomain(website || str(fd, "domain"))
     const duplicateConfirmed = fd.get("duplicate_confirmed") === "on"
+    const businessUnitId = str(fd, "business_unit_id")
+    if (!businessUnitId) return { error: "Elegí una línea de negocio." }
 
     let organizationId = existingOrganizationId
     if (!organizationId) {
@@ -90,25 +97,26 @@ export async function createClient(
       }
     }
 
-    const { data: client, error } = await supabase
-      .from("clients")
-      .insert({
-        organization_id: organizationId,
-        status: "activo",
-        owner_id: str(fd, "owner_id") || profile.id,
-        notes: str(fd, "notes") || null,
-      })
-      .select("id")
-      .single()
-    if (error || !client) return { error: error?.message ?? "No se pudo crear el cliente." }
-    await writeAudit(supabase, profile.id, "client", client.id, "created", {
+    const { data: clientId, error } = await supabase.rpc("create_client_with_maintenance", {
+      p_organization_id: organizationId,
+      p_owner_id: str(fd, "owner_id") || profile.id,
+      p_notes: str(fd, "notes") || null,
+      p_business_unit_id: businessUnitId,
+      p_maintenance_amount: amount(fd, "maintenance_amount") || null,
+      p_maintenance_currency: str(fd, "maintenance_currency") || null,
+      p_maintenance_next_due_date: str(fd, "maintenance_next_due_date") || null,
+      p_exchange_rate_type: str(fd, "maintenance_exchange_rate_type") || null,
+    })
+    if (error || !clientId) return { error: error?.message ?? "No se pudo crear el cliente." }
+    await writeAudit(supabase, profile.id, "client", clientId, "created", {
       organization_id: organizationId,
+      business_unit_id: businessUnitId,
     })
     revalidatePath("/clientes")
     revalidatePath("/")
     return {
       ok: true,
-      data: { clientId: client.id },
+      data: { clientId },
       message: "Cliente creado.",
     }
   } catch (error) {
