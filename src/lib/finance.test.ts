@@ -52,6 +52,7 @@ describe("financialStatus", () => {
 describe("resultado económico y caja", () => {
   const record = {
     record_type: "expense" as const,
+    expense_kind: "fixed" as const,
     canceled_at: null,
     amount_ars: 120_000,
     accrual_date: "2026-01-15",
@@ -66,7 +67,11 @@ describe("resultado económico y caja", () => {
 
   it("usa pagos parciales reales para caja y devengamientos para resultado", () => {
     const summary = summarizeManagement(
-      [record, { ...record, record_type: "income", amount_ars: 50_000, recognition_months: 1 }],
+      [
+        record,
+        { ...record, expense_kind: "variable" as const, amount_ars: 5_000, recognition_months: 1 },
+        { ...record, record_type: "income", expense_kind: null, amount_ars: 50_000, recognition_months: 1 },
+      ],
       [
         { record_type: "income", amount_ars: 20_000, paid_on: "2026-01-04" },
         { record_type: "expense", amount_ars: 7_000, paid_on: "2026-01-18" },
@@ -74,7 +79,10 @@ describe("resultado económico y caja", () => {
       "2026-01"
     )
     expect(summary.cashNetArs).toBe(13_000)
-    expect(summary.economicNetArs).toBe(40_000)
+    expect(summary.economicVariableExpenseArs).toBe(5_000)
+    expect(summary.economicFixedExpenseArs).toBe(10_000)
+    expect(summary.contributionMarginArs).toBe(45_000)
+    expect(summary.economicNetArs).toBe(35_000)
   })
 })
 

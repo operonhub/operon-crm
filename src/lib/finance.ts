@@ -117,6 +117,7 @@ export function validateCancellation(reason: string): FinancialValidation {
 
 export type ManagementRecordLike = {
   record_type: "income" | "expense"
+  expense_kind?: "fixed" | "variable" | null
   canceled_at: string | null
   amount_ars: number | null
   accrual_date: string
@@ -135,6 +136,9 @@ export type ManagementSummary = {
   cashNetArs: number
   economicIncomeArs: number
   economicExpenseArs: number
+  economicVariableExpenseArs: number
+  economicFixedExpenseArs: number
+  contributionMarginArs: number
   economicNetArs: number
   unconvertedItems: number
 }
@@ -164,6 +168,8 @@ export function summarizeManagement(
   let cashExpenseArs = 0
   let economicIncomeArs = 0
   let economicExpenseArs = 0
+  let economicVariableExpenseArs = 0
+  let economicFixedExpenseArs = 0
   let unconvertedItems = 0
 
   for (const payment of payments) {
@@ -183,7 +189,11 @@ export function summarizeManagement(
     }
     const amount = economicAmountInMonth(record, month)
     if (record.record_type === "income") economicIncomeArs += amount
-    else economicExpenseArs += amount
+    else {
+      economicExpenseArs += amount
+      if (record.expense_kind === "variable") economicVariableExpenseArs += amount
+      else economicFixedExpenseArs += amount
+    }
   }
 
   return {
@@ -192,6 +202,9 @@ export function summarizeManagement(
     cashNetArs: cashIncomeArs - cashExpenseArs,
     economicIncomeArs,
     economicExpenseArs,
+    economicVariableExpenseArs,
+    economicFixedExpenseArs,
+    contributionMarginArs: economicIncomeArs - economicVariableExpenseArs,
     economicNetArs: economicIncomeArs - economicExpenseArs,
     unconvertedItems,
   }

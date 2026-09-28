@@ -30,14 +30,16 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
 export type FinanceOption = { id: string; name: string }
+export type FinanceBusinessUnitOption = FinanceOption & { code: string }
+export type FinanceClientOption = FinanceOption & { businessUnitId: string }
 export type FinanceContactOption = FinanceOption & { phone: string | null }
 export type FinancePaymentMethodOption = FinanceOption & {
   ownerProfileId: string | null
   currency: string
 }
 export type FinanceFormOptions = {
-  businessUnits: FinanceOption[]
-  clients: FinanceOption[]
+  businessUnits: FinanceBusinessUnitOption[]
+  clients: FinanceClientOption[]
   contacts: FinanceContactOption[]
   projects: FinanceOption[]
   paymentMethods: FinancePaymentMethodOption[]
@@ -72,11 +74,14 @@ export function NewFinancialRecordDialog({
   const [error, setError] = useState<string | null>(null)
   const [recordType, setRecordType] = useState<FinancialRecordType>("income")
   const [currency, setCurrency] = useState<SupportedCurrency>("ARS")
+  const [businessUnitId, setBusinessUnitId] = useState("")
+  const [createNewClient, setCreateNewClient] = useState(false)
+  const [maintenanceCurrency, setMaintenanceCurrency] = useState<SupportedCurrency>("ARS")
   const [rateType, setRateType] = useState<FinanceExchangeRateType>("official")
   const [rates, setRates] = useState<RatesResponse | null>(null)
   const options = providedOptions ?? {
-    businessUnits: [{ id: "b1000000-0000-0000-0000-000000000001", name: "General" }],
-    clients,
+    businessUnits: [{ id: "b1000000-0000-0000-0000-000000000001", name: "General", code: "general" }],
+    clients: clients.map((client) => ({ ...client, businessUnitId: "b1000000-0000-0000-0000-000000000001" })),
     contacts: [],
     projects,
     paymentMethods: [],
@@ -85,6 +90,10 @@ export function NewFinancialRecordDialog({
   const open = controlledOpen ?? internalOpen
   const setOpen = onOpenChange ?? setInternalOpen
   const categories = recordType === "income" ? FINANCE_INCOME_CATEGORIES : FINANCE_EXPENSE_CATEGORIES
+  const selectedBusinessUnitId = businessUnitId || options.businessUnits[0]?.id || ""
+  const selectedBusinessUnit = options.businessUnits.find((unit) => unit.id === selectedBusinessUnitId)
+  const isOperonReservas = selectedBusinessUnit?.code === "operon_reserva"
+  const availableClients = options.clients.filter((client) => client.businessUnitId === selectedBusinessUnitId)
   const quotedRate = useMemo(() => rateType === "official" ? rates?.official?.sellRate : rates?.blue?.sellRate, [rateType, rates])
 
   useEffect(() => {
@@ -110,7 +119,7 @@ export function NewFinancialRecordDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) setError(null); setOpen(next) }}>
-      {showTrigger && <DialogTrigger render={<Button size="sm" />}><Plus className="mr-1 size-4" /> Movimiento</DialogTrigger>}
+      {showTrigger && <DialogTrigger render={<Button size="sm" />}><Plus className="mr-1 size-4" /> Agregar ingreso o gasto</DialogTrigger>}
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Nuevo ingreso o gasto</DialogTitle>
@@ -124,7 +133,7 @@ export function NewFinancialRecordDialog({
               </select>
             </Field>
             <Field label="Línea de negocio" htmlFor="finance-business-unit">
-              <select id="finance-business-unit" name="business_unit_id" className={selectClass} required defaultValue={options.businessUnits[0]?.id}>
+              <select id="finance-business-unit" name="business_unit_id" className={selectClass} required value={selectedBusinessUnitId} onChange={(event) => { setBusinessUnitId(event.target.value); setCreateNewClient(false) }}>
                 {options.businessUnits.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </Field>
@@ -134,6 +143,7 @@ export function NewFinancialRecordDialog({
             <Field label="Concepto" htmlFor="finance-concept"><Input id="finance-concept" name="concept" placeholder={recordType === "income" ? "Instalación o abono" : "Supabase, IA, infraestructura…"} required autoComplete="off" /></Field>
             <Field label="Categoría" htmlFor="finance-category"><select key={recordType} id="finance-category" name="category" className={selectClass} defaultValue={categories[0]}>{categories.map((category) => <option key={category}>{category}</option>)}</select></Field>
           </div>
+          {recordType === "expense" && <Field label="Comportamiento del gasto" htmlFor="finance-expense-kind"><select id="finance-expense-kind" name="expense_kind" className={selectClass} defaultValue="fixed"><option value="fixed">Gasto fijo</option><option value="variable">Costo variable</option></select></Field>}
 
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Monto total" htmlFor="finance-total"><Input id="finance-total" name="total_amount" type="number" min="0.01" step="0.01" required /></Field>
@@ -145,10 +155,29 @@ export function NewFinancialRecordDialog({
           </div>}
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Cliente" htmlFor="finance-client"><OptionalSelect id="finance-client" name="client_id" options={options.clients} empty="Sin cliente" /></Field>
+            <Field label="Cliente" htmlFor="finance-client"><select id="finance-client" name="client_id" className={selectClass} defaultValue="" disabled={createNewClient}><option value="">Sin cliente</option>{availableClients.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
             <Field label="Contacto para cobrar" htmlFor="finance-contact"><OptionalSelect id="finance-contact" name="contact_id" options={options.contacts} empty="Sin contacto" /></Field>
             <Field label="Proyecto" htmlFor="finance-project"><OptionalSelect id="finance-project" name="project_id" options={options.projects} empty="Sin proyecto" /></Field>
           </div>
+          {recordType === "income" && <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+            <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="create_new_client" checked={createNewClient} onChange={(event) => setCreateNewClient(event.target.checked)} /> Crear el cliente junto con este ingreso</label>
+            {createNewClient && <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Empresa / cliente" htmlFor="finance-new-client-name"><Input id="finance-new-client-name" name="new_client_name" required /></Field>
+                <Field label="Persona de contacto" htmlFor="finance-new-contact-name"><Input id="finance-new-contact-name" name="new_contact_name" /></Field>
+                <Field label="WhatsApp" htmlFor="finance-new-contact-phone"><Input id="finance-new-contact-phone" name="new_contact_phone" inputMode="tel" /></Field>
+              </div>
+              {isOperonReservas && <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                <p className="text-sm font-semibold">Abono mensual de Operon Reservas</p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Field label="Mantenimiento" htmlFor="finance-maintenance-amount"><Input id="finance-maintenance-amount" name="maintenance_amount" type="number" min="0.01" step="0.01" required /></Field>
+                  <Field label="Moneda" htmlFor="finance-maintenance-currency"><select id="finance-maintenance-currency" name="maintenance_currency" className={selectClass} value={maintenanceCurrency} onChange={(event) => setMaintenanceCurrency(event.target.value as SupportedCurrency)}><option value="ARS">ARS</option><option value="USD">USD</option></select></Field>
+                  <Field label="Primer vencimiento" htmlFor="finance-maintenance-due"><Input id="finance-maintenance-due" name="maintenance_next_due_date" type="date" defaultValue={todayISO()} required /></Field>
+                </div>
+                {maintenanceCurrency === "USD" && <Field label="Cotización al cobrar" htmlFor="finance-maintenance-rate"><select id="finance-maintenance-rate" name="maintenance_exchange_rate_type" className={selectClass}><option value="official">Dólar oficial venta</option><option value="blue">Dólar blue venta</option></select></Field>}
+              </div>}
+            </>}
+          </div>}
 
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Fecha económica" htmlFor="finance-accrual"><Input id="finance-accrual" name="accrual_date" type="date" defaultValue={todayISO()} required /></Field>

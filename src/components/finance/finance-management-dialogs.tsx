@@ -57,6 +57,7 @@ export function NewRecurringItemDialog({ options }: { options: FinanceFormOption
           <Field label="Tipo"><select name="record_type" className={selectClass} value={recordType} onChange={(event) => setRecordType(event.target.value as FinancialRecordType)}><option value="income">Ingreso</option><option value="expense">Gasto</option></select></Field>
           <Field label="Línea de negocio"><select name="business_unit_id" className={selectClass} required defaultValue={options.businessUnits[0]?.id}>{options.businessUnits.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
         </div>
+        {recordType === "expense" && <Field label="Comportamiento"><select name="expense_kind" className={selectClass} defaultValue="fixed"><option value="fixed">Gasto fijo</option><option value="variable">Costo variable</option></select></Field>}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Concepto"><Input name="concept" placeholder="Abono Operon Reserva" required /></Field>
           <Field label="Categoría"><select key={recordType} name="category" className={selectClass} defaultValue={categories[0]}>{categories.map((item) => <option key={item}>{item}</option>)}</select></Field>

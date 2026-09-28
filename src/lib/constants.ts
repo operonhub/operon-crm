@@ -179,6 +179,13 @@ export const FINANCIAL_RECORD_TYPE_LABELS = {
 
 export type FinancialRecordType = keyof typeof FINANCIAL_RECORD_TYPE_LABELS
 
+export const FINANCE_EXPENSE_KIND_LABELS = {
+  variable: "Costo variable",
+  fixed: "Gasto fijo",
+} as const
+
+export type FinanceExpenseKind = keyof typeof FINANCE_EXPENSE_KIND_LABELS
+
 export const FINANCIAL_STATUS_LABELS = {
   pending: "Pendiente",
   partial: "Parcial",
