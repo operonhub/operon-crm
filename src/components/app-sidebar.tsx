@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   BarChart3,
   Bot,
+  Building2,
   FolderKanban,
   Inbox,
   LayoutDashboard,
@@ -186,6 +187,7 @@ function SidebarNav({
 
       <nav className="flex-1 space-y-6 overflow-y-auto p-3">
         <NavGroup items={PRODUCT_NAV} onNavigate={onNavigate} />
+        <NavGroup label="Ventas de producto" items={[{ href: "/reservas-prospectos", label: "Operon Reservas", icon: Building2 }]} onNavigate={onNavigate} />
         <NavGroup label="Marketing" items={MARKETING_NAV} onNavigate={onNavigate} />
         <NavGroup
           label="Comunicación y sistemas"

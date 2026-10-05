@@ -103,12 +103,27 @@ export default async function InboxPage({
   const socialConversations = socialRes.data ?? []
   const zernio = readZernioConfig()
 
+  // Un vínculo comercial puede apuntar a un hilo fuera de los 200 más recientes.
+  // Resolverlo con la misma sesión/RLS, en vez de abrir por error el primer chat.
+  if (tab === "chats" && params.conversation
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.conversation)
+    && !socialConversations.some(c => c.id === params.conversation)) {
+    const { data: linkedChat } = await supabase.from("social_conversations")
+      .select(`id, platform, participant_name, participant_handle, participant_avatar_url, status,
+        unread_count, last_message_at, last_message_preview, last_inbound_at, lead_id,
+        account:social_accounts(username, display_name, is_active)`)
+      .eq("id", params.conversation)
+      .in("platform", channel === "todos" ? ["whatsapp", "instagram", "facebook", "telegram", "other"] : [channel])
+      .maybeSingle()
+    if (linkedChat) socialConversations.unshift(linkedChat)
+  }
+
   // El id seleccionado se resuelve contra la lista de la pestaña activa: cada
   // una tiene sus propias conversaciones y sus propios ids.
   const pool: { id: string }[] = tab === "chats" ? socialConversations : conversations
   const selectedId =
-    params.conversation && pool.some((item) => item.id === params.conversation)
-      ? params.conversation
+    params.conversation
+      ? pool.some((item) => item.id === params.conversation) ? params.conversation : undefined
       : pool[0]?.id
 
   // Segundo viaje, inevitable: depende de qué conversación quedó seleccionada.

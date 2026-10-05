@@ -1,8 +1,8 @@
 import { defineConfig } from "vitest/config"
 import { fileURLToPath } from "node:url"
 
-// Los tests corren sobre lógica pura de `src/lib`. El alias replica el de
-// tsconfig para que los módulos puedan importarse igual que en la app.
+// El alias replica tsconfig. También se prueban componentes SSR con datos y
+// sesión sintéticos, sin conectar la aplicación a la base remota.
 export default defineConfig({
   resolve: {
     alias: {
@@ -10,6 +10,6 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 })

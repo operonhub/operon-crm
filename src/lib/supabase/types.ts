@@ -3235,6 +3235,38 @@ export type Database = {
         Args: { p_payload: Json; p_secret: string }
         Returns: Json
       }
+      reservas_contact_blocked: {
+        Args: { p_lead_id: string }
+        Returns: boolean
+      }
+      ingest_reservas_prospect: {
+        Args: { p_payload: Json; p_secret: string }
+        Returns: Json
+      }
+      ingest_reservas_event: {
+        Args: { p_payload: Json; p_secret: string }
+        Returns: Json
+      }
+      record_reservas_event: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      link_reservas_conversation: {
+        Args: { p_prospect_id: string; p_conversation_id: string }
+        Returns: Json
+      }
+      get_reservas_contact_state: {
+        Args: { p_secret: string; p_prospect_id: string }
+        Returns: Json
+      }
+      get_reservas_sales_panel: {
+        Args: { p_page?: number; p_search?: string; p_stage?: string; p_attention?: string }
+        Returns: Json
+      }
+      get_reservas_sales_export_page: {
+        Args: { p_after?: string }
+        Returns: Json
+      }
       ingest_social_event: {
         Args: {
           p_account_external_id: string | null

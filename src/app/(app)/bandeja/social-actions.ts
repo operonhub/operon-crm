@@ -22,6 +22,7 @@ const MAX_BODY = 4000
 
 type ConversationContext = {
   id: string
+  lead_id: string | null
   zernio_conversation_id: string
   platform: string
   last_inbound_at: string | null
@@ -65,7 +66,7 @@ export async function sendSocialMessage(
   const { data: conversation } = await supabase
     .from("social_conversations")
     .select(
-      "id, zernio_conversation_id, platform, last_inbound_at, status, account:social_accounts(zernio_account_id, is_active)"
+      "id, lead_id, zernio_conversation_id, platform, last_inbound_at, status, account:social_accounts(zernio_account_id, is_active)"
     )
     .eq("id", conversationId)
     .maybeSingle<ConversationContext>()
@@ -76,6 +77,15 @@ export async function sendSocialMessage(
     return {
       error: "La cuenta está desconectada en Zernio. Reconectala antes de responder.",
     }
+  }
+
+  if (conversation.lead_id) {
+    const { data: blocked, error: contactError } = await supabase.rpc(
+      "reservas_contact_blocked",
+      { p_lead_id: conversation.lead_id }
+    )
+    if (contactError) return { error: "No se pudo verificar el permiso de contacto." }
+    if (blocked) return { error: "Este prospecto pidió no recibir más mensajes." }
   }
 
   // La ventana de 24h de WhatsApp se chequea ACÁ y no sólo en la UI: entre que
