@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MilestoneDialog } from "@/components/reservas/milestone-dialog"
+import { AgentReviewPanel, PrepareAgentButton } from "@/components/reservas/agent-review"
+import type { ReservasAgentPanel } from "@/lib/reservas-agent"
 
 type Params = { page?: string; q?: string; stage?: string; attention?: string }
 
@@ -40,6 +42,9 @@ export default async function ReservasSalesPage({ searchParams }: { searchParams
     return `/reservas-prospectos?${query}`
   }
   const metrics = panel.metrics
+  const agentQuery = await member.supabase.rpc("get_reservas_agent_panel")
+  const agentPanel = !agentQuery.error && agentQuery.data ? agentQuery.data as unknown as ReservasAgentPanel : null
+  const agentReady = process.env.RESERVAS_AGENT_READY === "true"
   const totalPages = Math.max(1, Math.ceil(panel.filtered_count / panel.page_size))
   return <PageTransition>
     <PageHeader title="Prospección de alojamientos" eyebrow="Operon Reservas"
@@ -53,6 +58,7 @@ export default async function ReservasSalesPage({ searchParams }: { searchParams
       </details>
     </PageHeader>
     <div className="space-y-6 p-4 sm:p-6">
+      <AgentReviewPanel panel={agentPanel} ready={agentReady} />
       {metrics.imported === 0 ? <EmptyState icon={<Building2 />} title="Todavía no hay alojamientos en este piloto"
         description="Cuando la importación de Sheets registre los prospectos en el CRM, vas a ver sus chats e hitos comerciales acá." /> : <>
         <section aria-labelledby="reservas-funnel" className="rounded-xl border bg-card">
@@ -105,7 +111,7 @@ export default async function ReservasSalesPage({ searchParams }: { searchParams
                   {row.meeting_at && <p className="mt-1">Reunión: {reservasTimestamp(row.meeting_at)}{Date.parse(row.meeting_at) < Date.parse(panel.generated_at) ? " · falta registrar resultado" : ""}</p>}
                   <Link href={`/leads/${row.lead_id}`} className="mt-1 inline-block text-muted-foreground underline">Gestionar seguimiento</Link>
                 </>}</TableCell>
-                <TableCell><div className="flex flex-col items-start gap-2">{row.conversation_id ? <Button variant="ghost" size="sm" nativeButton={false} render={<Link href={`/bandeja?tab=chats&canal=whatsapp&conversation=${row.conversation_id}`} />}><MessageCircle /> Abrir chat</Button> : <span className="text-xs text-muted-foreground">Chat sin vincular</span>}<MilestoneDialog prospectId={row.id} name={row.organization_name} /></div></TableCell>
+                <TableCell><div className="flex flex-col items-start gap-2">{row.conversation_id ? <Button variant="ghost" size="sm" nativeButton={false} render={<Link href={`/bandeja?tab=chats&canal=whatsapp&conversation=${row.conversation_id}`} />}><MessageCircle /> Abrir chat</Button> : <span className="text-xs text-muted-foreground">Chat sin vincular</span>}<PrepareAgentButton prospectId={row.id} disabled={!agentReady || !row.responded || row.do_not_contact || ["won", "lost"].includes(row.stage)} /><MilestoneDialog prospectId={row.id} name={row.organization_name} /></div></TableCell>
               </TableRow>)}</TableBody>
             </Table>
           </div>

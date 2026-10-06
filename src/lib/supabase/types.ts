@@ -14,6 +14,18 @@ export type Database = {
   }
   public: {
     Tables: {
+      reservas_agent_runs: {
+        Row: {
+          id: string; prospect_id: string; status: string; lease_id: string | null; context_version: string | null;
+          model_started_at: string | null; audio_started_at: string | null; result: Json | null; error_code: string | null;
+          approval: string; approved_message: string | null; appointment_id: string | null; delivery_state: string;
+          delivery_lease: string | null; provider_message_id: string | null; requested_by: string | null;
+          source_message_id: string | null; decided_by: string | null; decided_at: string | null; created_at: string; finished_at: string | null;
+        }
+        Insert: { id: string; prospect_id: string }
+        Update: { status?: string }
+        Relationships: []
+      }
       activities: {
         Row: {
           body: string | null
@@ -3266,6 +3278,22 @@ export type Database = {
         Args: { p_secret: string; p_prospect_id: string }
         Returns: Json
       }
+      request_reservas_agent: {
+        Args: { p_prospect_id: string; p_request_id: string }
+        Returns: Json
+      }
+      reservas_agent_command: {
+        Args: { p_secret: string; p_payload: Json }
+        Returns: Json
+      }
+      review_reservas_agent: {
+        Args: { p_run_id: string; p_decision: string; p_message?: string }
+        Returns: Json
+      }
+      get_reservas_agent_panel: { Args: never; Returns: Json }
+      poll_reservas_agent: { Args: { p_secret: string }; Returns: Json }
+      manage_crm_calendar: { Args: { p_payload: Json }; Returns: Json }
+      get_crm_calendar: { Args: { p_from: string; p_to: string }; Returns: Json }
       get_reservas_sales_panel: {
         Args: { p_page?: number; p_search?: string; p_stage?: string; p_attention?: string }
         Returns: Json

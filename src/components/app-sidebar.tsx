@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   BarChart3,
+  CalendarDays,
   Bot,
   Building2,
   FolderKanban,
@@ -41,6 +42,7 @@ type NavItem = {
 }
 const PRODUCT_NAV: NavItem[] = [
   { href: "/", label: "Hoy", icon: LayoutDashboard },
+  { href: "/calendario", label: "Calendario", icon: CalendarDays },
   {
     href: "/clientes",
     label: "Clientes",
