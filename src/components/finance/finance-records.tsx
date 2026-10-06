@@ -3,12 +3,13 @@
 import { useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CheckCircle2, History, MessageCircle, MoreHorizontal, Plus, ReceiptText } from "lucide-react"
+import { CheckCircle2, CreditCard, History, MessageCircle, MoreHorizontal, Plus, ReceiptText, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   addFinancialPayment,
   cancelFinancialRecordWithReason,
   completeFinancialRecord,
+  deleteFinancialRecords,
   updateFinancialRecord,
 } from "@/app/(app)/finanzas/actions"
 import type { ActionResult } from "@/lib/action-result"
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils"
 import type { FinanceFormOptions } from "@/components/finance/new-record-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
@@ -96,30 +98,81 @@ export function FinancialStatusBadge({ status }: { status: FinancialStatus }) {
 }
 
 export function FinanceRecords({ records, options, isAdmin }: { records: FinanceRow[]; options: FinanceFormOptions; isAdmin: boolean }) {
+  const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleting, startDelete] = useTransition()
   const editing = records.find((record) => record.id === editingId) ?? null
+  const methodNames = new Map(options.paymentMethods.map((method) => [method.id, method.name]))
+  // Si un filtro o un borrado saca filas de la lista, la selección no las arrastra.
+  const visibleIds = new Set(records.map((record) => record.id))
+  const chosen = [...selected].filter((id) => visibleIds.has(id))
+  const allSelected = records.length > 0 && chosen.length === records.length
+  function toggle(id: string, on: boolean) {
+    setSelected((current) => {
+      const next = new Set(current)
+      if (on) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+  function toggleAll(on: boolean) {
+    setSelected(on ? new Set(records.map((record) => record.id)) : new Set())
+  }
+  function confirmDelete() {
+    setDeleteError(null)
+    startDelete(async () => {
+      const result = await deleteFinancialRecords(chosen)
+      if ("error" in result) return setDeleteError(result.error)
+      toast.success(result.message)
+      setSelected(new Set())
+      setConfirmOpen(false)
+      router.refresh()
+    })
+  }
   if (!records.length) return <div className="rounded-xl border border-dashed px-4 py-10 text-center"><p className="text-sm font-medium">Todavía no hay movimientos.</p><p className="mt-1 text-sm text-muted-foreground">El primer registro se crea desde el encabezado.</p></div>
   return <>
-    <div className="space-y-2 md:hidden">{records.map((record) => <MobileRecord key={record.id} record={record} onOpen={() => setEditingId(record.id)} />)}</div>
+    {isAdmin && <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border bg-card px-3 py-2">
+      <label className="flex items-center gap-2 text-sm"><Checkbox checked={allSelected} onCheckedChange={(on) => toggleAll(Boolean(on))} aria-label="Seleccionar todos los movimientos" />{chosen.length ? `${chosen.length} seleccionados` : "Seleccionar todos"}</label>
+      {chosen.length > 0 && <>
+        <Button type="button" variant="destructive" size="sm" onClick={() => { setDeleteError(null); setConfirmOpen(true) }}><Trash2 className="mr-1 size-4" />Borrar seleccionados</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpiar</Button>
+      </>}
+    </div>}
+    <div className="space-y-2 md:hidden">{records.map((record) => <MobileRecord key={record.id} record={record} methodName={record.defaultPaymentMethodId ? methodNames.get(record.defaultPaymentMethodId) ?? null : null} onOpen={() => setEditingId(record.id)} selectable={isAdmin} selected={selected.has(record.id)} onSelect={(on) => toggle(record.id, on)} />)}</div>
     <div className="hidden overflow-hidden rounded-xl border bg-background md:block">
-      <Table><TableHeader><TableRow><TableHead>Concepto</TableHead><TableHead>Cliente / proyecto</TableHead><TableHead>Estado</TableHead><TableHead>Vencimiento</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Saldo</TableHead><TableHead className="w-10"><span className="sr-only">Acciones</span></TableHead></TableRow></TableHeader>
-        <TableBody>{records.map((record) => <TableRow key={record.id}>
-          <TableCell><p className="font-medium">{record.concept}</p><p className="text-xs text-muted-foreground">{record.businessUnitName} · {record.category}</p></TableCell>
-          <TableCell><Relations record={record} /></TableCell>
-          <TableCell><FinancialStatusBadge status={record.status} /></TableCell>
-          <TableCell className={cn("text-sm", record.status === "overdue" ? "text-destructive" : "text-muted-foreground")}>{formatDateNumeric(record.dueDate)}</TableCell>
-          <TableCell className="text-right font-mono tabular-nums">{formatMoney(record.total, record.currency)}</TableCell>
-          <TableCell className={cn("text-right font-mono tabular-nums", record.status === "overdue" && "text-destructive")}>{formatMoney(record.balance, record.currency)}</TableCell>
-          <TableCell><RecordMenu record={record} onOpen={() => setEditingId(record.id)} isAdmin={isAdmin} /></TableCell>
-        </TableRow>)}</TableBody>
+      <Table><TableHeader><TableRow>{isAdmin && <TableHead className="w-10"><span className="sr-only">Seleccionar</span></TableHead>}<TableHead>Concepto</TableHead><TableHead>Cliente / proyecto</TableHead><TableHead>Estado</TableHead><TableHead>Vencimiento</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Saldo</TableHead><TableHead className="w-10"><span className="sr-only">Acciones</span></TableHead></TableRow></TableHeader>
+        <TableBody>{records.map((record) => {
+          const methodName = record.defaultPaymentMethodId ? methodNames.get(record.defaultPaymentMethodId) ?? null : null
+          return <TableRow key={record.id} data-state={selected.has(record.id) ? "selected" : undefined}>
+            {isAdmin && <TableCell><Checkbox checked={selected.has(record.id)} onCheckedChange={(on) => toggle(record.id, Boolean(on))} aria-label={`Seleccionar ${record.concept}`} /></TableCell>}
+            <TableCell><p className="font-medium">{record.concept}</p><p className="text-xs text-muted-foreground">{record.businessUnitName} · {record.category}</p>{methodName && <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"><CreditCard className="size-3" />{methodName}</p>}</TableCell>
+            <TableCell><Relations record={record} /></TableCell>
+            <TableCell><FinancialStatusBadge status={record.status} /></TableCell>
+            <TableCell className={cn("text-sm", record.status === "overdue" ? "text-destructive" : "text-muted-foreground")}>{formatDateNumeric(record.dueDate)}</TableCell>
+            <TableCell className="text-right font-mono tabular-nums">{formatMoney(record.total, record.currency)}</TableCell>
+            <TableCell className={cn("text-right font-mono tabular-nums", record.status === "overdue" && "text-destructive")}>{formatMoney(record.balance, record.currency)}</TableCell>
+            <TableCell><RecordMenu record={record} onOpen={() => setEditingId(record.id)} isAdmin={isAdmin} /></TableCell>
+          </TableRow>
+        })}</TableBody>
       </Table>
     </div>
     <RecordDialog record={editing} options={options} isAdmin={isAdmin} onClose={() => setEditingId(null)} />
+    <Dialog open={confirmOpen} onOpenChange={(open) => !deleting && setConfirmOpen(open)}><DialogContent className="sm:max-w-md">
+      <DialogHeader><DialogTitle>¿Borrar {chosen.length === 1 ? "este movimiento" : `${chosen.length} movimientos`}?</DialogTitle><DialogDescription>Se eliminan para siempre junto con sus pagos e historial y dejan de contar en caja y en el resultado. No se puede deshacer. Si solo querés que no cuente pero conservar el rastro, cancelá el movimiento desde su ficha.</DialogDescription></DialogHeader>
+      {deleteError && <p role="alert" className="text-sm text-destructive">{deleteError}</p>}
+      <DialogFooter><Button type="button" variant="outline" disabled={deleting} onClick={() => setConfirmOpen(false)}>Volver</Button><Button type="button" variant="destructive" disabled={deleting} onClick={confirmDelete}>{deleting ? "Borrando…" : "Borrar definitivamente"}</Button></DialogFooter>
+    </DialogContent></Dialog>
   </>
 }
 
-function MobileRecord({ record, onOpen }: { record: FinanceRow; onOpen: () => void }) {
-  return <button type="button" onClick={onOpen} className="w-full rounded-xl border bg-card p-4 text-left"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{record.concept}</p><p className="mt-0.5 text-xs text-muted-foreground">{record.businessUnitName} · {record.category}</p></div><FinancialStatusBadge status={record.status} /></div><div className="mt-3 flex items-end justify-between gap-3 border-t pt-3"><Relations record={record} /><p className="font-mono text-sm font-medium tabular-nums">{formatMoney(record.balance, record.currency)}</p></div></button>
+function MobileRecord({ record, methodName, onOpen, selectable, selected, onSelect }: { record: FinanceRow; methodName: string | null; onOpen: () => void; selectable: boolean; selected: boolean; onSelect: (on: boolean) => void }) {
+  return <div className="flex items-stretch gap-2">
+    {selectable && <label className="flex items-center px-1"><Checkbox checked={selected} onCheckedChange={(on) => onSelect(Boolean(on))} aria-label={`Seleccionar ${record.concept}`} /></label>}
+    <button type="button" onClick={onOpen} className="min-w-0 flex-1 rounded-xl border bg-card p-4 text-left"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{record.concept}</p><p className="mt-0.5 text-xs text-muted-foreground">{record.businessUnitName} · {record.category}</p>{methodName && <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"><CreditCard className="size-3" />{methodName}</p>}</div><FinancialStatusBadge status={record.status} /></div><div className="mt-3 flex items-end justify-between gap-3 border-t pt-3"><Relations record={record} /><p className="font-mono text-sm font-medium tabular-nums">{formatMoney(record.balance, record.currency)}</p></div></button>
+  </div>
 }
 
 function Relations({ record }: { record: FinanceRow }) {

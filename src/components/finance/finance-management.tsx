@@ -1,4 +1,5 @@
-import { generateFinanceRecurringRecord, reimbursePartnerPayment } from "@/app/(app)/finanzas/actions"
+import { reimbursePartnerPayment } from "@/app/(app)/finanzas/actions"
+import { GenerateDueButton, RecurringRowActions } from "@/components/finance/recurring-actions"
 import {
   FINANCE_EXCHANGE_RATE_LABELS,
   FINANCE_FREQUENCY_LABELS,
@@ -27,6 +28,9 @@ export type RecurringFinanceRow = {
   nextDueDate: string
   exchangeRateType: FinanceExchangeRateType
   active: boolean
+  autoPaid: boolean
+  paymentMethodName: string | null
+  due: boolean
 }
 
 export type PaymentMethodRow = {
@@ -74,19 +78,24 @@ export function PartnerAdvances({ rows }: { rows: PartnerAdvanceRow[] }) {
   </Card>
 }
 
-export function RecurringItemsTable({ rows }: { rows: RecurringFinanceRow[] }) {
-  return <div className="overflow-hidden rounded-xl border bg-background">
-    <Table><TableHeader><TableRow><TableHead>Concepto</TableHead><TableHead>Tipo</TableHead><TableHead>Línea</TableHead><TableHead>Importe</TableHead><TableHead>Frecuencia</TableHead><TableHead>Próximo</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
-      <TableBody>{!rows.length ? <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Todavía no hay abonos ni gastos recurrentes.</TableCell></TableRow> : rows.map((row) => <TableRow key={row.id}>
+export function RecurringItemsTable({ rows, isAdmin }: { rows: RecurringFinanceRow[]; isAdmin: boolean }) {
+  const dueCount = rows.filter((row) => row.active && row.due).length
+  return <div className="space-y-3">
+    {isAdmin && <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm text-muted-foreground">Los recurrentes no se cargan solos: tocá <strong className="text-foreground">Generar</strong> cuando llegue el mes. Los marcados como automáticos quedan además pagados con su tarjeta.</p><GenerateDueButton dueCount={dueCount} /></div>}
+    <div className="overflow-hidden rounded-xl border bg-background">
+    <Table><TableHeader><TableRow><TableHead>Concepto</TableHead><TableHead>Tipo</TableHead><TableHead>Línea</TableHead><TableHead>Importe</TableHead><TableHead>Frecuencia</TableHead><TableHead>Se paga con</TableHead><TableHead>Próximo</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
+      <TableBody>{!rows.length ? <TableRow><TableCell colSpan={8} className="h-24 text-center text-muted-foreground">Todavía no hay abonos ni gastos recurrentes.</TableCell></TableRow> : rows.map((row) => <TableRow key={row.id}>
         <TableCell><p className="font-medium">{row.concept}</p><p className="text-xs text-muted-foreground">{row.clientName ?? row.category}</p></TableCell>
         <TableCell><Badge variant={row.recordType === "income" ? "secondary" : "outline"}>{row.recordType === "income" ? "Ingreso" : "Gasto"}</Badge></TableCell>
         <TableCell>{row.businessUnitName}</TableCell>
         <TableCell className="font-mono">{formatMoney(row.total, row.currency)}{row.currency === "USD" && <p className="text-xs font-sans text-muted-foreground">{FINANCE_EXCHANGE_RATE_LABELS[row.exchangeRateType]}</p>}</TableCell>
         <TableCell>{FINANCE_FREQUENCY_LABELS[row.frequency]}</TableCell>
-        <TableCell>{formatDateNumeric(row.nextDueDate)}</TableCell>
-        <TableCell className="text-right"><form action={generateFinanceRecurringRecord}><input type="hidden" name="recurring_item_id" value={row.id} /><Button type="submit" size="xs" disabled={!row.active}>Generar movimiento</Button></form></TableCell>
+        <TableCell className="text-sm">{row.recordType === "expense" ? <>{row.paymentMethodName ?? <span className="text-muted-foreground">Sin definir</span>}{row.autoPaid && <p className="text-xs text-muted-foreground">Se paga solo</p>}</> : <span className="text-muted-foreground">—</span>}</TableCell>
+        <TableCell className={row.active && row.due ? "text-destructive" : undefined}>{row.active ? formatDateNumeric(row.nextDueDate) : <Badge variant="outline">Pausado</Badge>}</TableCell>
+        <TableCell className="text-right">{isAdmin ? <RecurringRowActions id={row.id} concept={row.concept} active={row.active} due={row.due} /> : null}</TableCell>
       </TableRow>)}</TableBody>
     </Table>
+    </div>
   </div>
 }
 

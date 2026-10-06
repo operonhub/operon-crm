@@ -83,6 +83,7 @@ export function NewRecurringItemDialog({ options }: { options: FinanceFormOption
           <Field label="Medio o cuenta"><OptionalSelect name="payment_method_id" options={options.paymentMethods} empty="Sin definir" /></Field>
           {recordType === "expense" && <Field label="Pagado por"><OptionalSelect name="paid_by_profile_id" options={options.profiles} empty="Operon" /></Field>}
         </div>
+        {recordType === "expense" && <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="auto_paid" className="mt-1" /><span><strong className="font-medium">Se paga solo</strong> (suscripción con débito automático): al generar cada mes queda registrado como pagado con el medio elegido.</span></label>}
         <Field label="Notas"><Textarea name="notes" rows={2} /></Field>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <DialogFooter><Button type="submit" disabled={pending}>{pending ? "Guardando…" : "Guardar recurrencia"}</Button></DialogFooter>

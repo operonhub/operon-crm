@@ -1285,6 +1285,7 @@ export type Database = {
       finance_recurring_items: {
         Row: {
           active: boolean
+          auto_paid: boolean
           business_unit_id: string
           category: string
           client_id: string | null
@@ -1311,6 +1312,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          auto_paid?: boolean
           business_unit_id: string
           category: string
           client_id?: string | null
@@ -1337,6 +1339,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          auto_paid?: boolean
           business_unit_id?: string
           category?: string
           client_id?: string | null
@@ -3203,6 +3206,10 @@ export type Database = {
           p_owner_id: string
         }
         Returns: string
+      }
+      delete_financial_records: {
+        Args: { p_ids: string[] }
+        Returns: number
       }
       create_internal_notification: {
         Args: {

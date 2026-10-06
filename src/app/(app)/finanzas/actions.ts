@@ -94,6 +94,25 @@ async function paymentSnapshot(
   }
 }
 
+/**
+ * Si el gasto sale de una tarjeta o cuenta de un socio, ese socio es quien
+ * adelanta la plata: se deduce del medio aunque no se haya elegido "Pagado por".
+ */
+async function resolvePaidBy(
+  supabase: Awaited<ReturnType<typeof requireAdmin>>["supabase"],
+  paymentMethodId: string | null | undefined,
+  explicit: string | null | undefined
+): Promise<string | null> {
+  if (explicit) return explicit
+  if (!paymentMethodId) return null
+  const { data } = await supabase
+    .from("finance_payment_methods")
+    .select("owner_type, owner_profile_id")
+    .eq("id", paymentMethodId)
+    .maybeSingle()
+  return data?.owner_type === "partner" ? data.owner_profile_id : null
+}
+
 function refreshFinances() {
   revalidatePath("/")
   revalidatePath("/finanzas")
@@ -167,6 +186,10 @@ export async function createFinancialRecord(
     } catch (error) {
       return { error: error instanceof Error ? error.message : "No se pudo cotizar el movimiento." }
     }
+    const resolvedPaidBy =
+      recordType === "expense"
+        ? await resolvePaidBy(supabase, paymentMethodId || null, paidByProfileId || null)
+        : null
 
     if (recordType === "income" && fd.get("create_new_client") === "on") {
       const newClientName = str(fd, "new_client_name")
@@ -237,7 +260,7 @@ export async function createFinancialRecord(
         expense_kind: expenseKind,
         contact_id: contactId || null,
         default_payment_method_id: paymentMethodId || null,
-        default_paid_by_profile_id: recordType === "expense" ? paidByProfileId || null : null,
+        default_paid_by_profile_id: resolvedPaidBy,
         paid_at: null,
         client_id: clientId || null,
         project_id: projectId || null,
@@ -265,7 +288,7 @@ export async function createFinancialRecord(
           paid_on: paidOn,
           note: "Pago inicial",
           payment_method_id: paymentMethodId || null,
-          paid_by_profile_id: recordType === "expense" ? paidByProfileId || null : null,
+          paid_by_profile_id: resolvedPaidBy,
         })
       if (paymentError) {
         revalidateFinancialConsumers(clientId, projectId)
@@ -311,6 +334,12 @@ export async function addFinancialPayment(
     } catch (error) {
       return { error: error instanceof Error ? error.message : "No se pudo cotizar el pago." }
     }
+    const methodId = str(fd, "payment_method_id") || record.default_payment_method_id
+    const paidBy = await resolvePaidBy(
+      supabase,
+      methodId,
+      str(fd, "paid_by_profile_id") || record.default_paid_by_profile_id
+    )
 
     const { data: payment, error } = await supabase
       .from("financial_payments")
@@ -323,8 +352,8 @@ export async function addFinancialPayment(
         exchange_rate_at: paymentMoney.exchangeRateAt,
         paid_on: paidOn,
         note: note || null,
-        payment_method_id: str(fd, "payment_method_id") || record.default_payment_method_id,
-        paid_by_profile_id: str(fd, "paid_by_profile_id") || record.default_paid_by_profile_id,
+        payment_method_id: methodId,
+        paid_by_profile_id: paidBy,
       })
       .select("id")
       .single()
@@ -506,6 +535,11 @@ export async function updateFinancialRecord(
     } catch (error) {
       return { error: error instanceof Error ? error.message : "No se pudo cotizar el movimiento." }
     }
+    const defaultMethodId = str(fd, "payment_method_id") || null
+    const defaultPaidBy =
+      current.record_type === "expense"
+        ? await resolvePaidBy(supabase, defaultMethodId, str(fd, "paid_by_profile_id") || null)
+        : null
     const { error } = await supabase
       .from("financial_records")
       .update({
@@ -523,8 +557,8 @@ export async function updateFinancialRecord(
         category,
         expense_kind: expenseKind,
         contact_id: contactId || null,
-        default_payment_method_id: str(fd, "payment_method_id") || null,
-        default_paid_by_profile_id: str(fd, "paid_by_profile_id") || null,
+        default_payment_method_id: defaultMethodId,
+        default_paid_by_profile_id: defaultPaidBy,
         client_id: clientId || null,
         project_id: projectId || null,
         notes: str(fd, "notes") || null,
@@ -609,6 +643,14 @@ export async function createFinanceRecurringItem(
     if (currency === "USD" && (!FINANCE_EXCHANGE_RATE_TYPES.includes(rateType) || rateType === "none")) {
       return { error: "Elegí la cotización del abono." }
     }
+    const recurringPaidBy =
+      recordType === "expense"
+        ? await resolvePaidBy(supabase, str(fd, "payment_method_id") || null, str(fd, "paid_by_profile_id") || null)
+        : null
+    const autoPaid = recordType === "expense" && fd.get("auto_paid") === "on"
+    if (autoPaid && !str(fd, "payment_method_id")) {
+      return { error: "Para que se pague solo, elegí la tarjeta o cuenta con la que se paga." }
+    }
     const { error } = await supabase.from("finance_recurring_items").insert({
       record_type: recordType,
       business_unit_id: str(fd, "business_unit_id"),
@@ -626,7 +668,8 @@ export async function createFinanceRecurringItem(
       exchange_rate_type: rateType,
       manual_exchange_rate: rateType === "manual" ? amount(fd, "manual_exchange_rate") : null,
       default_payment_method_id: str(fd, "payment_method_id") || null,
-      default_paid_by_profile_id: recordType === "expense" ? str(fd, "paid_by_profile_id") || null : null,
+      default_paid_by_profile_id: recurringPaidBy,
+      auto_paid: autoPaid,
       recognition_months: integer(fd, "recognition_months"),
       notes: str(fd, "notes") || null,
     })
@@ -638,45 +681,77 @@ export async function createFinanceRecurringItem(
   }
 }
 
-export async function generateFinanceRecurringRecord(fd: FormData): Promise<void> {
-  const { supabase, profile } = await requireAdmin()
-  const id = str(fd, "recurring_item_id")
-  const { data: item, error: readError } = await supabase
+type FinanceSupabase = Awaited<ReturnType<typeof requireAdmin>>["supabase"]
+type RecurringItemRow = Awaited<ReturnType<typeof loadRecurringItem>>
+
+async function loadRecurringItem(supabase: FinanceSupabase, id: string) {
+  const { data, error } = await supabase
     .from("finance_recurring_items")
     .select("*")
     .eq("id", id)
     .eq("active", true)
     .single()
-  if (readError || !item) throw new Error("No se encontró el concepto recurrente.")
+  if (error || !data) throw new Error("No se encontró el concepto recurrente.")
+  return data
+}
+
+/** Genera el vencimiento actual del concepto y avanza `next_due_date` un período. */
+async function generateRecurringOccurrence(
+  supabase: FinanceSupabase,
+  profileId: string,
+  item: RecurringItemRow
+): Promise<RecurringItemRow> {
   const rateType = item.exchange_rate_type as FinanceExchangeRateType
   const currency = item.currency as SupportedCurrency
   const snapshot = await moneySnapshot(currency, Number(item.total_amount), rateType, Number(item.manual_exchange_rate ?? 0))
-  const { error } = await supabase.from("financial_records").insert({
-    record_type: item.record_type,
-    concept: item.concept,
-    category: item.category,
-    expense_kind: item.expense_kind,
-    currency,
-    total_amount: item.total_amount,
-    paid_amount: 0,
-    amount_ars: snapshot.amountArs,
-    exchange_rate_type: snapshot.rateType,
-    exchange_rate: snapshot.exchangeRate,
-    exchange_rate_at: snapshot.exchangeRateAt,
-    due_date: item.next_due_date,
-    accrual_date: item.next_due_date,
-    recognition_months: item.recognition_months,
-    business_unit_id: item.business_unit_id,
-    client_id: item.client_id,
-    project_id: item.project_id,
-    contact_id: item.contact_id,
-    default_payment_method_id: item.default_payment_method_id,
-    default_paid_by_profile_id: item.default_paid_by_profile_id,
-    recurring_item_id: item.id,
-    notes: item.notes,
-    updated_by: profile.id,
-  })
+  const { data: record, error } = await supabase
+    .from("financial_records")
+    .insert({
+      record_type: item.record_type,
+      concept: item.concept,
+      category: item.category,
+      expense_kind: item.expense_kind,
+      currency,
+      total_amount: item.total_amount,
+      paid_amount: 0,
+      amount_ars: snapshot.amountArs,
+      exchange_rate_type: snapshot.rateType,
+      exchange_rate: snapshot.exchangeRate,
+      exchange_rate_at: snapshot.exchangeRateAt,
+      due_date: item.next_due_date,
+      accrual_date: item.next_due_date,
+      recognition_months: item.recognition_months,
+      business_unit_id: item.business_unit_id,
+      client_id: item.client_id,
+      project_id: item.project_id,
+      contact_id: item.contact_id,
+      default_payment_method_id: item.default_payment_method_id,
+      default_paid_by_profile_id: item.default_paid_by_profile_id,
+      recurring_item_id: item.id,
+      notes: item.notes,
+      updated_by: profileId,
+    })
+    .select("id")
+    .single()
+  // 23505: este vencimiento ya existía; sólo falta avanzar la plantilla.
   if (error && error.code !== "23505") throw new Error(error.message)
+
+  if (record && item.auto_paid && item.record_type === "expense") {
+    const { error: paymentError } = await supabase.from("financial_payments").insert({
+      financial_record_id: record.id,
+      amount: item.total_amount,
+      amount_ars: snapshot.amountArs,
+      exchange_rate_type: snapshot.rateType,
+      exchange_rate: snapshot.exchangeRate,
+      exchange_rate_at: snapshot.exchangeRateAt,
+      paid_on: item.next_due_date,
+      note: "Pago automático de gasto recurrente",
+      payment_method_id: item.default_payment_method_id,
+      paid_by_profile_id: item.default_paid_by_profile_id,
+    })
+    if (paymentError) throw new Error(`Se generó el gasto, pero no su pago: ${paymentError.message}`)
+  }
+
   const nextDueDate = advanceDueDate(item.next_due_date, item.frequency as FinanceFrequency)
   const remainsActive = !item.end_date || nextDueDate <= item.end_date
   const { error: updateError } = await supabase
@@ -684,7 +759,112 @@ export async function generateFinanceRecurringRecord(fd: FormData): Promise<void
     .update({ next_due_date: nextDueDate, active: remainsActive })
     .eq("id", item.id)
   if (updateError) throw new Error(updateError.message)
+  return { ...item, next_due_date: nextDueDate, active: remainsActive }
+}
+
+export async function generateFinanceRecurringRecord(fd: FormData): Promise<void> {
+  const { supabase, profile } = await requireAdmin()
+  const item = await loadRecurringItem(supabase, str(fd, "recurring_item_id"))
+  await generateRecurringOccurrence(supabase, profile.id, item)
   refreshFinances()
+}
+
+/**
+ * Genera todos los vencimientos que ya llegaron (hasta hoy), incluidos los
+ * meses atrasados si nadie los cargó. Sirve de "cargar el mes" con un clic.
+ */
+export async function generateDueRecurringRecords(): Promise<ActionResult> {
+  try {
+    const { supabase, profile } = await requireAdmin()
+    const today = new Date().toISOString().slice(0, 10)
+    const { data: due, error } = await supabase
+      .from("finance_recurring_items")
+      .select("id")
+      .eq("active", true)
+      .lte("next_due_date", today)
+    if (error) return { error: error.message }
+
+    let created = 0
+    for (const { id } of due ?? []) {
+      let item: RecurringItemRow = await loadRecurringItem(supabase, id)
+      // Tope por concepto para que un vencimiento viejo no genere cientos de filas.
+      for (let guard = 0; item.active && item.next_due_date <= today && guard < 24; guard++) {
+        item = await generateRecurringOccurrence(supabase, profile.id, item)
+        created += 1
+      }
+    }
+    refreshFinances()
+    return {
+      ok: true,
+      message: created ? `Se generaron ${created} movimientos recurrentes.` : "No había vencimientos pendientes.",
+    }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : authorizationMessage(error) }
+  }
+}
+
+export async function setFinanceRecurringItemActive(id: string, active: boolean): Promise<ActionResult> {
+  try {
+    const { supabase } = await requireAdmin()
+    const { error } = await supabase.from("finance_recurring_items").update({ active }).eq("id", id)
+    if (error) return { error: error.message }
+    refreshFinances()
+    return { ok: true, message: active ? "Recurrente reactivado." : "Recurrente pausado." }
+  } catch (error) {
+    return { error: authorizationMessage(error) }
+  }
+}
+
+export async function deleteFinanceRecurringItem(id: string): Promise<ActionResult> {
+  try {
+    const { supabase, profile } = await requireAdmin()
+    const { error } = await supabase.from("finance_recurring_items").delete().eq("id", id)
+    if (error) return { error: error.message }
+    await writeAudit(supabase, profile.id, "finance_recurring_item", id, "deleted")
+    refreshFinances()
+    return { ok: true, message: "Recurrente eliminado. Los movimientos ya generados se conservan." }
+  } catch (error) {
+    return { error: authorizationMessage(error) }
+  }
+}
+
+/**
+ * Borrado real y definitivo, solo admins. Guarda una foto de cada movimiento en
+ * la auditoría antes de borrar, porque el movimiento y sus pagos desaparecen.
+ */
+export async function deleteFinancialRecords(ids: string[]): Promise<ActionResult> {
+  try {
+    const { supabase, profile } = await requireAdmin()
+    const unique = [...new Set(ids.filter(Boolean))]
+    if (!unique.length) return { error: "Elegí al menos un movimiento." }
+    if (unique.length > 200) return { error: "Se pueden borrar hasta 200 movimientos por vez." }
+
+    const { data: snapshot } = await supabase
+      .from("financial_records")
+      .select("id, record_type, concept, category, currency, total_amount, paid_amount, accrual_date, client_id, project_id")
+      .in("id", unique)
+
+    const { data: deleted, error } = await supabase.rpc("delete_financial_records", { p_ids: unique })
+    if (error) {
+      return {
+        error: error.message.includes("delete_financial_records")
+          ? "Falta aplicar la migración de borrado en el Supabase de Operon CRM."
+          : error.message,
+      }
+    }
+    await writeAudit(supabase, profile.id, "financial_record", null, "bulk_deleted", {
+      count: deleted ?? unique.length,
+      records: snapshot ?? [],
+    })
+    for (const record of snapshot ?? []) {
+      revalidateFinancialConsumers(record.client_id ?? undefined, record.project_id ?? undefined)
+    }
+    refreshFinances()
+    const count = deleted ?? unique.length
+    return { ok: true, message: count === 1 ? "Movimiento borrado." : `${count} movimientos borrados.` }
+  } catch (error) {
+    return { error: authorizationMessage(error) }
+  }
 }
 
 export async function reimbursePartnerPayment(fd: FormData): Promise<void> {

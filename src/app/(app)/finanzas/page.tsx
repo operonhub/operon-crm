@@ -82,10 +82,11 @@ export default async function FinanzasPage({ searchParams }: { searchParams: Pro
   const options: FinanceFormOptions = {
     businessUnits: units.filter((item) => item.active).map((item) => ({ id: item.id, name: item.name, code: item.code })), clients,
     contacts: contacts.map((item) => ({ id: item.id, name: item.full_name, phone: item.phone })), projects: projectsRes.data ?? [],
-    paymentMethods: paymentMethods.filter((item) => item.active).map((item) => ({ id: item.id, name: item.name, ownerProfileId: item.owner_profile_id, currency: item.currency })),
+    paymentMethods: paymentMethods.filter((item) => item.active).map((item) => ({ id: item.id, name: methodLabel(item, profileNames), ownerProfileId: item.owner_profile_id, currency: item.currency })),
     profiles: profiles.map((item) => ({ id: item.id, name: item.full_name })),
   }
-  const recurring: RecurringFinanceRow[] = (recurringRes.data ?? []).filter((item) => selectedUnitId === "all" || item.business_unit_id === selectedUnitId).map((item) => ({ id: item.id, recordType: item.record_type as "income" | "expense", concept: item.concept, category: item.category, businessUnitName: unitNames.get(item.business_unit_id) ?? "General", clientName: clients.find((client) => client.id === item.client_id)?.name ?? null, total: Number(item.total_amount), currency: item.currency as SupportedCurrency, frequency: item.frequency as FinanceFrequency, nextDueDate: item.next_due_date, exchangeRateType: item.exchange_rate_type as FinanceExchangeRateType, active: item.active }))
+  const methodLabels = new Map(paymentMethods.map((item) => [item.id, methodLabel(item, profileNames)]))
+  const recurring: RecurringFinanceRow[] = (recurringRes.data ?? []).filter((item) => selectedUnitId === "all" || item.business_unit_id === selectedUnitId).map((item) => ({ id: item.id, recordType: item.record_type as "income" | "expense", concept: item.concept, category: item.category, businessUnitName: unitNames.get(item.business_unit_id) ?? "General", clientName: clients.find((client) => client.id === item.client_id)?.name ?? null, total: Number(item.total_amount), currency: item.currency as SupportedCurrency, frequency: item.frequency as FinanceFrequency, nextDueDate: item.next_due_date, exchangeRateType: item.exchange_rate_type as FinanceExchangeRateType, active: item.active, autoPaid: item.auto_paid, paymentMethodName: methodLabels.get(item.default_payment_method_id ?? "") ?? null, due: item.next_due_date <= today }))
   const methods: PaymentMethodRow[] = paymentMethods.map((item) => ({ id: item.id, name: item.name, methodType: item.method_type as FinancePaymentMethodType, ownerName: item.owner_type === "operon" ? "Operon" : profileNames.get(item.owner_profile_id ?? "") ?? item.owner_label ?? "Socio", currency: item.currency as SupportedCurrency, institution: item.institution, lastFour: item.last_four }))
   const partnerAdvances: PartnerAdvanceRow[] = selectedRaw.flatMap((record) => record.record_type !== "expense" ? [] : (record.payments ?? []).flatMap((payment) => !payment.paid_by_profile_id || payment.amount_ars == null || payment.reimbursements ? [] : [{ paymentId: payment.id, partnerName: profileNames.get(payment.paid_by_profile_id) ?? "Socio", amountArs: Number(payment.amount_ars), paidOn: payment.paid_on, concept: record.concept }]))
   const unitResults: UnitResultRow[] = units.map((unit) => {
@@ -134,11 +135,17 @@ export default async function FinanzasPage({ searchParams }: { searchParams: Pro
         <div className="grid gap-4 xl:grid-cols-2"><BusinessUnitResults rows={unitResults} /><PartnerAdvances rows={partnerAdvances} /></div>
         <Tabs defaultValue="movements"><TabsList><TabsTrigger value="movements">Movimientos</TabsTrigger><TabsTrigger value="recurring">Recurrentes</TabsTrigger><TabsTrigger value="methods">Medios de pago</TabsTrigger></TabsList>
           <TabsContent value="movements" className="space-y-3"><div className="flex items-center gap-2"><WalletCards className="size-4 text-muted-foreground" /><h2 className="font-heading text-sm font-semibold">Movimientos de {selectedUnitName}</h2><span className="font-mono text-xs text-muted-foreground">{records.length}</span></div><FinanceRecords records={records} options={options} isAdmin={isAdmin} /></TabsContent>
-          <TabsContent value="recurring"><RecurringItemsTable rows={recurring} /></TabsContent><TabsContent value="methods"><PaymentMethodsGrid rows={methods} /></TabsContent>
+          <TabsContent value="recurring"><RecurringItemsTable rows={recurring} isAdmin={isAdmin} /></TabsContent><TabsContent value="methods"><PaymentMethodsGrid rows={methods} /></TabsContent>
         </Tabs>
       </>}
     </div>
   </></PageTransition>
+}
+
+/** "Visa · Santiago": el nombre del medio más de quién es, para saber dónde está el gasto. */
+function methodLabel(item: { name: string; owner_type: string; owner_profile_id: string | null; owner_label: string | null }, profileNames: Map<string, string>) {
+  const owner = item.owner_type === "operon" ? "Operon" : profileNames.get(item.owner_profile_id ?? "") ?? item.owner_label ?? "Socio"
+  return item.name.toLowerCase().includes(owner.toLowerCase()) ? item.name : `${item.name} · ${owner}`
 }
 
 function toManagementRecord(record: { record_type: FinancialRecordType; expense_kind: "fixed" | "variable" | null; canceled_at: string | null; amount_ars: number | null; accrual_date: string; recognition_months: number }) {
